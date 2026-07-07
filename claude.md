@@ -8,6 +8,7 @@ O WhatsApp já é a interface que qualquer pessoa, de qualquer idade, sabe usar 
 - Especialização na dor de quem tem baixa literacia digital (paciência, linguagem simples, proatividade)
 - Confiança e intimidade desenhadas com cuidado (não é só "uma IA a mais", é presença constante e consistente)
 - Módulo família com consentimento explícito — algo que uma big tech generalista não prioriza para este nicho
+- Postura educativa: cada resposta é uma chance de o idoso entender um pouco mais e ganhar autonomia com tecnologia, não só de resolver a tarefa pontual
 
 **Não somos "outro chatbot no WhatsApp". Somos a camada de confiança e cuidado que falta no ecossistema de IA genérica.**
 
@@ -24,6 +25,7 @@ O WhatsApp já é a interface que qualquer pessoa, de qualquer idade, sabe usar 
 4. **Sem mocks a partir de agora.** Toda funcionalidade implementada deve rodar contra os serviços reais (WhatsApp Cloud API real, API Claude real, banco real). Nada de simular resposta ou dado fictício "pra depois trocar".
 5. **Nenhuma fase avança sem testes automatizados passando.** Cobertura mínima: o caminho feliz de cada funcionalidade nova + os casos de erro previsíveis (falha de API externa, entrada inválida, timeout).
 6. **Segurança pensada desde a primeira linha de código**, não deixada para o final (ver seção 6).
+7. **Postura educativa, não só executiva.** Sempre que possível, explique o "porquê" além do "o quê" (ex: pra que serve cada botão, não só "aperte aqui") — o objetivo é aumentar a autonomia e a confiança do idoso com tecnologia ao longo do tempo, não só resolver a tarefa pontual. Essa lente também ajuda a decidir escopo de funcionalidade nova: priorizar o que ensina em vez de só automatizar.
 
 ## 4. Funcionalidades do usuário principal (idoso)
 
