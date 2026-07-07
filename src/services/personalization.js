@@ -4,12 +4,23 @@ function toneInstruction(tone) {
   return null;
 }
 
+// O WhatsApp não é Markdown padrão — sem isso a IA usa **dois asteriscos**
+// (convenção comum de Markdown), o WhatsApp só reconhece o primeiro par de
+// *asterisco simples* como negrito, e sobra asterisco literal no meio do
+// texto (bug reportado pelo usuário 2026-07-07). Vale pra qualquer resposta
+// livre, com ou sem perfil — por isso fica sempre no prompt, não condicionado.
+const FORMATTING_INSTRUCTIONS = `Formatação de mensagem pro WhatsApp (atenção: NÃO é Markdown padrão):
+- Negrito: *um asterisco* de cada lado (ex: *assim*). Nunca use **dois asteriscos** — o WhatsApp não reconhece e sobra asterisco literal no meio do texto.
+- Itálico, se precisar: _um underscore_ de cada lado (ex: _assim_).
+- Emojis são bem-vindos com moderação — pra deixar a conversa mais leve ou pontuar os itens de uma lista — mas sem exagerar nem forçar em toda frase.`;
+
 // Base prompt sempre primeiro, personalização sempre depois como sufixo — deixa
 // pronto pra um cache_control breakpoint futuro (Fase 7) sem precisar redesenhar.
 function buildPersonalizedSystemPrompt(basePrompt, profile) {
-  if (!profile) return basePrompt;
+  const parts = [basePrompt, `\n---\n${FORMATTING_INSTRUCTIONS}`];
 
-  const parts = [basePrompt];
+  if (!profile) return parts.join('\n');
+
   const persona = [];
 
   if (profile.assistant_name) {
