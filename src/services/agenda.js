@@ -1,4 +1,4 @@
-const { client, MODELS, firstText, MOCK } = require('./claudeClient');
+const { client, MODELS, finalText, MOCK } = require('./claudeClient');
 
 const REMINDER_SCHEMA = {
   type: 'object',
@@ -32,7 +32,7 @@ Agora é: ${agora} (horário de Brasília, fuso America/Sao_Paulo).
     messages: [{ role: 'user', content: text }],
   });
 
-  const { descricao, quando_iso, recorrente } = JSON.parse(firstText(response));
+  const { descricao, quando_iso, recorrente } = JSON.parse(finalText(response));
   const scheduledAt = quando_iso ? new Date(quando_iso) : null;
   const valid =
     Boolean(descricao) &&

@@ -30,7 +30,9 @@ function normalizeBrazilianNumber(number) {
 // mensagem de texto passa antes de sair pro WhatsApp — não depende só do
 // modelo se comportar.
 function normalizeWhatsAppFormatting(text) {
-  return text.replace(/\*\*(.+?)\*\*/g, '*$1*');
+  // "s" (dotAll) pra cobrir negrito que cruze uma quebra de linha dentro do
+  // mesmo par de asteriscos (achado da auditoria 2026-07-07).
+  return text.replace(/\*\*(.+?)\*\*/gs, '*$1*');
 }
 
 async function sendTextMessage(to, body) {

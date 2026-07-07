@@ -1,4 +1,4 @@
-const { client, MODELS, firstText, MOCK } = require('./claudeClient');
+const { client, MODELS, finalText, MOCK } = require('./claudeClient');
 const { buildVisionContent } = require('./mediaContent');
 
 const INTENT_SCHEMA = {
@@ -51,7 +51,7 @@ async function classifyIntent(text, image) {
     messages: [{ role: 'user', content: buildVisionContent(text, image) }],
   });
 
-  return JSON.parse(firstText(response)).intent;
+  return JSON.parse(finalText(response)).intent;
 }
 
 module.exports = { classifyIntent };

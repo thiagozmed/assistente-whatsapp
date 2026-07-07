@@ -1,4 +1,4 @@
-const { client, MODELS, firstText, MOCK } = require('./claudeClient');
+const { client, MODELS, finalText, MOCK } = require('./claudeClient');
 const { buildPersonalizedSystemPrompt } = require('./personalization');
 const { buildVisionContent } = require('./mediaContent');
 
@@ -22,7 +22,7 @@ async function explain(text, profile, image) {
     messages: [{ role: 'user', content: buildVisionContent(text, image) }],
   });
 
-  return firstText(response);
+  return finalText(response);
 }
 
 module.exports = { explain };

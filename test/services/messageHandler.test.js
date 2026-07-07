@@ -119,6 +119,27 @@ test('handleIncomingText: onboarding aguardando_tom conclui e dá boas-vindas', 
   assert.match(reply, /alegre e descontraído/);
 });
 
+test('handleIncomingText: onboarding aguardando_tom trunca descrição de tom anormalmente longa antes de gravar', async (t) => {
+  const tomGigante = 'a'.repeat(200);
+  t.mock.method(profileStore, 'getProfile', async () => ({
+    phone_number: '5511999999999',
+    assistant_name: 'Zeca',
+    onboarding_state: 'aguardando_tom',
+  }));
+  const updateToneMock = t.mock.method(profileStore, 'updateTone', async (phone, tone) => ({
+    phone_number: phone,
+    assistant_name: 'Zeca',
+    tone,
+    onboarding_state: 'completo',
+  }));
+  t.mock.method(client.messages, 'create', async () => textResponse({ tone: tomGigante }));
+
+  await handleIncomingText('5511999999999', 'tom bem específico');
+  const tomGravado = updateToneMock.mock.calls[0].arguments[1];
+  assert.equal(tomGravado.length, 61); // 60 caracteres + "…"
+  assert.match(tomGravado, /…$/);
+});
+
 test('handleIncomingText: golpe -> alerta redigido pelo Sonnet e resumo registrado', async (t) => {
   mockRateLimitAllowed(t);
   t.mock.method(profileStore, 'getProfile', async () => COMPLETED_PROFILE);
@@ -171,6 +192,25 @@ test('handleIncomingText: intent "preferencia" atualiza o perfil e confirma', as
   const reply = await handleIncomingText('5511999999999', 'quero te chamar de outro nome, Cuca');
   assert.match(reply, /Cuca/);
   assert.equal(updateMock.mock.callCount(), 1);
+});
+
+test('handleIncomingText: intent "preferencia" trunca tom anormalmente longo antes de gravar e de confirmar', async (t) => {
+  mockRateLimitAllowed(t);
+  t.mock.method(profileStore, 'getProfile', async () => COMPLETED_PROFILE);
+  const updateMock = t.mock.method(profileStore, 'updatePreference', async () => COMPLETED_PROFILE);
+
+  const tomGigante = 'b'.repeat(200);
+  let call = 0;
+  t.mock.method(client.messages, 'create', async () => {
+    call += 1;
+    if (call === 1) return textResponse({ intent: 'preferencia' }); // router
+    return textResponse({ name: '', tone: tomGigante }); // preferences.extractPreferenceUpdate
+  });
+
+  const reply = await handleIncomingText('5511999999999', 'fala comigo de um jeito bem específico');
+  const tomGravado = updateMock.mock.calls[0].arguments[1].tone;
+  assert.equal(tomGravado.length, 61); // 60 caracteres + "…"
+  assert.ok(reply.includes(tomGravado)); // buildConfirmationMessage ecoa o tom já truncado
 });
 
 test('handleIncomingText: intent "outro" chama o assistente de conversa geral e registra a interação', async (t) => {
@@ -318,6 +358,17 @@ test('handleIncomingImage: onboarding incompleto pede pra terminar em texto', as
 
   const reply = await handleIncomingImage('5511999999999', FAKE_IMAGE, undefined);
   assert.match(reply, /terminar de te conhecer/i);
+});
+
+test('handleIncomingImage: ação pendente de confirmar "esquecer" pede confirmação em texto, sem processar a imagem', async (t) => {
+  t.mock.method(profileStore, 'getProfile', async () => ({ ...COMPLETED_PROFILE, pending_action: 'confirmar_esquecer' }));
+  const createModelMock = t.mock.method(client.messages, 'create', async () => {
+    throw new Error('não deveria classificar/processar a imagem com confirmação pendente');
+  });
+
+  const reply = await handleIncomingImage('5511999999999', FAKE_IMAGE, undefined);
+  assert.match(reply, /confirme.*texto|texto.*confirme/i);
+  assert.equal(createModelMock.mock.callCount(), 0);
 });
 
 test('handleIncomingImage: sem legenda, mas imagem é uma tela confusa -> roteia pra burocracia', async (t) => {

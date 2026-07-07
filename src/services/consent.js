@@ -1,4 +1,4 @@
-const { client, MODELS, firstText, MOCK } = require('./claudeClient');
+const { client, MODELS, finalText, MOCK } = require('./claudeClient');
 
 const CONSENT_MESSAGE = `Oi! Antes de começarmos, uma explicação rápida:
 
@@ -36,7 +36,7 @@ Classifique a resposta em "sim" (concordou), "nao" (não concordou), ou "indefin
     messages: [{ role: 'user', content: text }],
   });
 
-  const { resposta } = JSON.parse(firstText(response));
+  const { resposta } = JSON.parse(finalText(response));
   return resposta;
 }
 

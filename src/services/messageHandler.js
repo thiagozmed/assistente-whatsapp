@@ -42,6 +42,13 @@ const CONFIRM_FORGET_MESSAGE =
 const FORGET_CANCELLED_MESSAGE = 'Tudo bem, não vou apagar nada. Seus dados continuam guardados normalmente.';
 const CONFIRM_FORGET_RETRY_MESSAGE =
   'Desculpa, não entendi — quer mesmo que eu apague seus dados guardados? Responda só "sim" ou "não".';
+const PENDING_FORGET_NEEDS_TEXT_MESSAGE =
+  'Antes de eu continuar, preciso que você confirme se quer mesmo apagar seus dados — responda "sim" ou "não" em texto, por favor.';
+
+// Tom livre (desde 2026-07-07) não tem mais um enum de duas opções travando
+// o tamanho — sem isso, um resumo anormalmente longo do Haiku ficaria salvo
+// pra sempre e reinjetado em todo system prompt futuro do usuário.
+const MAX_TONE_LENGTH = 60;
 
 function askToneMessage(assistantName) {
   return `Prazer! Pode me chamar de ${assistantName}. Como você gostaria que eu falasse com você? Pode ser formal, informal, alegre, sério... fica a seu critério.`;
@@ -99,7 +106,7 @@ async function handleIncomingText(phoneNumber, text, referenceTimestamp = new Da
   if (profile.onboarding_state === 'aguardando_tom') {
     const tone = await preferences.extractTone(text);
     if (!tone) return ONBOARDING_RETRY_TONE;
-    const updated = await profileStore.updateTone(phoneNumber, tone);
+    const updated = await profileStore.updateTone(phoneNumber, truncate(tone, MAX_TONE_LENGTH));
     return welcomeMessage(updated);
   }
 
@@ -122,6 +129,7 @@ async function handleIncomingText(phoneNumber, text, referenceTimestamp = new Da
 
   if (intent === 'preferencia') {
     const update = await preferences.extractPreferenceUpdate(text);
+    if (update.tone) update.tone = truncate(update.tone, MAX_TONE_LENGTH);
     if (update.name || update.tone) {
       await profileStore.updatePreference(phoneNumber, update);
     }
@@ -154,6 +162,10 @@ async function handleIncomingImage(phoneNumber, media, caption) {
   if (!profile) {
     await profileStore.createProfile(phoneNumber);
     return consent.CONSENT_MESSAGE;
+  }
+
+  if (profile.pending_action === 'confirmar_esquecer') {
+    return PENDING_FORGET_NEEDS_TEXT_MESSAGE;
   }
 
   if (profile.onboarding_state !== 'completo') {
