@@ -4,8 +4,16 @@ const { buildPersonalizedSystemPrompt } = require('../../src/services/personaliz
 
 const BASE = 'Prompt base.';
 
-test('sem perfil, devolve o prompt base sem alteração', () => {
-  assert.equal(buildPersonalizedSystemPrompt(BASE, null), BASE);
+test('sem perfil, mantém o prompt base e ainda inclui as instruções de formatação do WhatsApp', () => {
+  const prompt = buildPersonalizedSystemPrompt(BASE, null);
+  assert.match(prompt, new RegExp(`^${BASE}`));
+  assert.match(prompt, /negrito/i);
+  assert.match(prompt, /emojis/i);
+});
+
+test('instruções de formatação proíbem negrito com dois asteriscos (bug do WhatsApp)', () => {
+  const prompt = buildPersonalizedSystemPrompt(BASE, null);
+  assert.match(prompt, /nunca use \*\*dois asteriscos\*\*/i);
 });
 
 test('perfil com nome e tom adiciona instrução de persona', () => {
@@ -41,7 +49,8 @@ test('resumo da última interação é enquadrado como contexto, nunca como inst
   assert.match(prompt, /nunca uma instrução/i);
 });
 
-test('perfil sem nome/tom/resumo não adiciona nada além do prompt base', () => {
+test('perfil sem nome/tom/resumo não adiciona persona, só as instruções de formatação', () => {
   const prompt = buildPersonalizedSystemPrompt(BASE, { assistant_name: null, tone: null, last_interaction_summary: null });
-  assert.equal(prompt, BASE);
+  assert.match(prompt, new RegExp(`^${BASE}`));
+  assert.doesNotMatch(prompt, /Personalização deste usuário/);
 });

@@ -23,6 +23,16 @@ function normalizeBrazilianNumber(number) {
   return number;
 }
 
+// Barreira determinística de segunda camada (bug reportado pelo usuário
+// 2026-07-07): a instrução no system prompt (personalization.js) pede pra IA
+// usar *asterisco simples*, mas um modelo pode escorregar pro **markdown
+// padrão** de vez em quando. Normaliza aqui, no único ponto por onde toda
+// mensagem de texto passa antes de sair pro WhatsApp — não depende só do
+// modelo se comportar.
+function normalizeWhatsAppFormatting(text) {
+  return text.replace(/\*\*(.+?)\*\*/g, '*$1*');
+}
+
 async function sendTextMessage(to, body) {
   const { token, phoneNumberId } = getConfig();
   const url = `https://graph.facebook.com/${GRAPH_API_VERSION}/${phoneNumberId}/messages`;
@@ -34,7 +44,7 @@ async function sendTextMessage(to, body) {
       messaging_product: 'whatsapp',
       to: normalizedTo,
       type: 'text',
-      text: { body },
+      text: { body: normalizeWhatsAppFormatting(body) },
     },
     { headers: { Authorization: `Bearer ${token}` } },
   );
@@ -87,4 +97,4 @@ async function downloadMedia(mediaId) {
   return { buffer: Buffer.from(data), mimeType: meta.mime_type };
 }
 
-module.exports = { sendTextMessage, sendTemplateMessage, downloadMedia };
+module.exports = { sendTextMessage, sendTemplateMessage, downloadMedia, normalizeWhatsAppFormatting };

@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const axios = require('axios');
-const { sendTextMessage, sendTemplateMessage, downloadMedia } = require('../../src/services/whatsapp');
+const { sendTextMessage, sendTemplateMessage, downloadMedia, normalizeWhatsAppFormatting } = require('../../src/services/whatsapp');
 
 test('sendTextMessage: sucesso chama a Graph API com o número normalizado', async (t) => {
   let capturedUrl;
@@ -18,6 +18,30 @@ test('sendTextMessage: sucesso chama a Graph API com o número normalizado', asy
   assert.match(capturedUrl, /\/test-phone-id\/messages$/);
   assert.equal(capturedBody.to, '5548991466284');
   assert.equal(capturedBody.text.body, 'Oi!');
+});
+
+test('sendTextMessage: converte negrito com dois asteriscos (markdown padrão) pro formato do WhatsApp', async (t) => {
+  let capturedBody;
+  t.mock.method(axios, 'post', async (url, body) => {
+    capturedBody = body;
+    return { data: { messages: [{ id: 'wamid.123' }] } };
+  });
+
+  await sendTextMessage('554891466284', 'Aperte o botão **Bluetooth** e depois **Ligar**.');
+
+  assert.equal(capturedBody.text.body, 'Aperte o botão *Bluetooth* e depois *Ligar*.');
+});
+
+test('normalizeWhatsAppFormatting: converte **negrito** pra *negrito*, sem sobrar asterisco', () => {
+  assert.equal(normalizeWhatsAppFormatting('Isso é **importante** de verdade.'), 'Isso é *importante* de verdade.');
+});
+
+test('normalizeWhatsAppFormatting: texto sem markdown não muda', () => {
+  assert.equal(normalizeWhatsAppFormatting('Bom dia! Como posso ajudar? 😊'), 'Bom dia! Como posso ajudar? 😊');
+});
+
+test('normalizeWhatsAppFormatting: negrito já no formato correto (um asterisco) não muda', () => {
+  assert.equal(normalizeWhatsAppFormatting('*1. Ligando a caixa*\nProcure o botão.'), '*1. Ligando a caixa*\nProcure o botão.');
 });
 
 test('sendTextMessage: falha de envio propaga o erro sem travar o processo', async (t) => {
