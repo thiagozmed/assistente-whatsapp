@@ -22,6 +22,11 @@ test('classifyIntent: reconhece agenda', async (t) => {
   assert.equal(await classifyIntent('me lembra de tomar remédio amanhã de manhã'), 'agenda');
 });
 
+test('classifyIntent: reconhece esquecer', async (t) => {
+  t.mock.method(client.messages, 'create', async () => textResponse({ intent: 'esquecer' }));
+  assert.equal(await classifyIntent('esquece meus dados, por favor'), 'esquecer');
+});
+
 test('classifyIntent: reconhece outro', async (t) => {
   t.mock.method(client.messages, 'create', async () => textResponse({ intent: 'outro' }));
   assert.equal(await classifyIntent('oi, bom dia'), 'outro');
