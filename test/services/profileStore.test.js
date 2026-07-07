@@ -105,3 +105,18 @@ test('recordInteraction: grava tipo e resumo da última interação', async (t) 
   const profile = await profileStore.recordInteraction('123', { type: 'golpe', summary: 'golpe_conhecido — link falso' });
   assert.equal(profile.last_interaction_type, 'golpe');
 });
+
+test('updateDailyMessageCount: grava a contagem e a data do dia', async (t) => {
+  t.mock.method(supabase, 'from', () =>
+    fakeQuery({ data: { phone_number: '123', daily_message_count: 3, daily_message_count_date: '2026-07-07' }, error: null }),
+  );
+
+  const profile = await profileStore.updateDailyMessageCount('123', 3, '2026-07-07');
+  assert.equal(profile.daily_message_count, 3);
+});
+
+test('updateDailyMessageCount: erro do Supabase propaga como exceção', async (t) => {
+  t.mock.method(supabase, 'from', () => fakeQuery({ data: null, error: { message: 'conexão recusada' } }));
+
+  await assert.rejects(() => profileStore.updateDailyMessageCount('123', 1, '2026-07-07'), /conexão recusada/);
+});

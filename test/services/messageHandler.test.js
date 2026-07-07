@@ -5,7 +5,13 @@ const profileStore = require('../../src/services/profileStore');
 const reminderStore = require('../../src/services/reminderStore');
 const transcription = require('../../src/services/transcription');
 const consent = require('../../src/services/consent');
+const rateLimit = require('../../src/services/rateLimit');
+const generalAssistant = require('../../src/services/generalAssistant');
 const { handleIncomingText, handleIncomingImage, handleIncomingAudio } = require('../../src/services/messageHandler');
+
+function mockRateLimitAllowed(t) {
+  return t.mock.method(rateLimit, 'checkAndIncrement', async () => ({ allowed: true, count: 1 }));
+}
 
 function textResponse(payloadOrText) {
   const text = typeof payloadOrText === 'string' ? payloadOrText : JSON.stringify(payloadOrText);
@@ -113,6 +119,7 @@ test('handleIncomingText: onboarding aguardando_tom conclui e dá boas-vindas', 
 });
 
 test('handleIncomingText: golpe -> alerta redigido pelo Sonnet e resumo registrado', async (t) => {
+  mockRateLimitAllowed(t);
   t.mock.method(profileStore, 'getProfile', async () => COMPLETED_PROFILE);
   const recordMock = t.mock.method(profileStore, 'recordInteraction', async () => COMPLETED_PROFILE);
 
@@ -131,6 +138,7 @@ test('handleIncomingText: golpe -> alerta redigido pelo Sonnet e resumo registra
 });
 
 test('handleIncomingText: burocracia -> explicação do Sonnet e resumo registrado', async (t) => {
+  mockRateLimitAllowed(t);
   t.mock.method(profileStore, 'getProfile', async () => COMPLETED_PROFILE);
   const recordMock = t.mock.method(profileStore, 'recordInteraction', async () => COMPLETED_PROFILE);
 
@@ -148,6 +156,7 @@ test('handleIncomingText: burocracia -> explicação do Sonnet e resumo registra
 });
 
 test('handleIncomingText: intent "preferencia" atualiza o perfil e confirma', async (t) => {
+  mockRateLimitAllowed(t);
   t.mock.method(profileStore, 'getProfile', async () => COMPLETED_PROFILE);
   const updateMock = t.mock.method(profileStore, 'updatePreference', async () => ({ ...COMPLETED_PROFILE, assistant_name: 'Cuca' }));
 
@@ -163,15 +172,33 @@ test('handleIncomingText: intent "preferencia" atualiza o perfil e confirma', as
   assert.equal(updateMock.mock.callCount(), 1);
 });
 
-test('handleIncomingText: intent "outro" cai no fallback', async (t) => {
+test('handleIncomingText: intent "outro" chama o assistente de conversa geral e registra a interação', async (t) => {
+  mockRateLimitAllowed(t);
   t.mock.method(profileStore, 'getProfile', async () => COMPLETED_PROFILE);
+  const recordMock = t.mock.method(profileStore, 'recordInteraction', async () => COMPLETED_PROFILE);
+  const respondMock = t.mock.method(generalAssistant, 'respond', async () => 'Bom dia! Como posso ajudar hoje?');
   t.mock.method(client.messages, 'create', async () => textResponse({ intent: 'outro' }));
 
   const reply = await handleIncomingText('5511999999999', 'oi, bom dia');
-  assert.match(reply, /posso te ajudar de várias formas/i);
+  assert.equal(reply, 'Bom dia! Como posso ajudar hoje?');
+  assert.equal(respondMock.mock.callCount(), 1);
+  assert.equal(recordMock.mock.calls[0].arguments[1].type, 'geral');
+});
+
+test('handleIncomingText: limite diário de mensagens atingido bloqueia antes de classificar intenção', async (t) => {
+  t.mock.method(profileStore, 'getProfile', async () => COMPLETED_PROFILE);
+  t.mock.method(rateLimit, 'checkAndIncrement', async () => ({ allowed: false, count: 61 }));
+  const createModelMock = t.mock.method(client.messages, 'create', async () => {
+    throw new Error('não deveria chamar a IA depois do limite diário estourado');
+  });
+
+  const reply = await handleIncomingText('5511999999999', 'mais uma pergunta');
+  assert.match(reply, /amanhã/i);
+  assert.equal(createModelMock.mock.callCount(), 0);
 });
 
 test('handleIncomingText: intent "agenda" cria o lembrete e confirma', async (t) => {
+  mockRateLimitAllowed(t);
   t.mock.method(profileStore, 'getProfile', async () => COMPLETED_PROFILE);
   const createMock = t.mock.method(reminderStore, 'createReminder', async () => ({}));
 
@@ -190,6 +217,7 @@ test('handleIncomingText: intent "agenda" cria o lembrete e confirma', async (t)
 });
 
 test('handleIncomingText: intent "agenda" sem data válida não cria lembrete e pede pra repetir', async (t) => {
+  mockRateLimitAllowed(t);
   t.mock.method(profileStore, 'getProfile', async () => COMPLETED_PROFILE);
   const createMock = t.mock.method(reminderStore, 'createReminder', async () => ({}));
 
@@ -206,6 +234,7 @@ test('handleIncomingText: intent "agenda" sem data válida não cria lembrete e 
 });
 
 test('handleIncomingText: intent "esquecer" apaga o perfil e confirma', async (t) => {
+  mockRateLimitAllowed(t);
   t.mock.method(profileStore, 'getProfile', async () => COMPLETED_PROFILE);
   const deleteMock = t.mock.method(profileStore, 'deleteProfile', async () => {});
   t.mock.method(client.messages, 'create', async () => textResponse({ intent: 'esquecer' }));
@@ -217,6 +246,7 @@ test('handleIncomingText: intent "esquecer" apaga o perfil e confirma', async (t
 });
 
 test('handleIncomingText: falha da API Claude propaga erro sem travar o processo', async (t) => {
+  mockRateLimitAllowed(t);
   t.mock.method(profileStore, 'getProfile', async () => COMPLETED_PROFILE);
   t.mock.method(client.messages, 'create', async () => {
     throw new Error('simulated Anthropic outage');
@@ -243,6 +273,7 @@ test('handleIncomingImage: onboarding incompleto pede pra terminar em texto', as
 });
 
 test('handleIncomingImage: sem legenda, trata como burocracia', async (t) => {
+  mockRateLimitAllowed(t);
   t.mock.method(profileStore, 'getProfile', async () => COMPLETED_PROFILE);
   const recordMock = t.mock.method(profileStore, 'recordInteraction', async () => COMPLETED_PROFILE);
   t.mock.method(client.messages, 'create', async () => textResponse('1. Toque em ATUALIZAR CADASTRO.'));
@@ -253,6 +284,7 @@ test('handleIncomingImage: sem legenda, trata como burocracia', async (t) => {
 });
 
 test('handleIncomingImage: legenda de golpe roteia pro escudo contra golpe', async (t) => {
+  mockRateLimitAllowed(t);
   t.mock.method(profileStore, 'getProfile', async () => COMPLETED_PROFILE);
   const recordMock = t.mock.method(profileStore, 'recordInteraction', async () => COMPLETED_PROFILE);
 
@@ -269,7 +301,20 @@ test('handleIncomingImage: legenda de golpe roteia pro escudo contra golpe', asy
   assert.equal(recordMock.mock.calls[0].arguments[1].type, 'golpe');
 });
 
+test('handleIncomingImage: limite diário atingido bloqueia antes de classificar legenda', async (t) => {
+  t.mock.method(profileStore, 'getProfile', async () => COMPLETED_PROFILE);
+  t.mock.method(rateLimit, 'checkAndIncrement', async () => ({ allowed: false, count: 61 }));
+  const createModelMock = t.mock.method(client.messages, 'create', async () => {
+    throw new Error('não deveria chamar a IA depois do limite diário estourado');
+  });
+
+  const reply = await handleIncomingImage('5511999999999', FAKE_IMAGE, 'isso é golpe?');
+  assert.match(reply, /amanhã/i);
+  assert.equal(createModelMock.mock.callCount(), 0);
+});
+
 test('handleIncomingAudio: transcreve e processa como texto normal', async (t) => {
+  mockRateLimitAllowed(t);
   t.mock.method(transcription, 'transcribeAudio', async () => 'me lembra de tomar remédio amanhã às 8');
   t.mock.method(profileStore, 'getProfile', async () => COMPLETED_PROFILE);
   t.mock.method(reminderStore, 'createReminder', async () => ({}));
