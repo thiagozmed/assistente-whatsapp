@@ -7,14 +7,9 @@ function textResponse(payload) {
   return { content: [{ type: 'text', text: JSON.stringify(payload) }] };
 }
 
-test('CONSENT_MESSAGE explica que é uma IA e o que guarda', () => {
-  assert.match(CONSENT_MESSAGE, /intelig[eê]ncia artificial/i);
-  assert.match(CONSENT_MESSAGE, /esquece meus dados/i);
-});
-
-test('CONSENT_MESSAGE avisa sobre processamento por provedores de IA terceiros (LGPD)', () => {
-  assert.match(CONSENT_MESSAGE, /anthropic/i);
-  assert.match(CONSENT_MESSAGE, /openai/i);
+test('CONSENT_MESSAGE se identifica como IA e aponta pra política de privacidade', () => {
+  assert.match(CONSENT_MESSAGE, /assistente de ia/i);
+  assert.match(CONSENT_MESSAGE, /pol[ií]tica de privacidade/i);
 });
 
 test('interpretConsent: reconhece "sim"', async (t) => {

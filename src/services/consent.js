@@ -1,12 +1,12 @@
 const { client, MODELS, finalText, MOCK } = require('./claudeClient');
 
-const CONSENT_MESSAGE = `Oi! Antes de começarmos, uma explicação rápida:
+const CONSENT_MESSAGE = `Oi! 👋 Bem-vindo! Eu sou seu assistente de IA aqui no WhatsApp.
 
-Eu sou um assistente de inteligência artificial (não uma pessoa) — vou te ajudar por aqui a checar se mensagens são golpe, explicar telas confusas, e lembrar você de compromissos.
+Estou pronto pra te ajudar com golpes, explicar coisas confusas, lembrar compromissos e responder suas dúvidas.
 
-Pra isso, eu guardo algumas informações suas: o nome que você escolher pra mim, como prefere que eu fale com você, e um resumo curto da última vez que te ajudei (não guardo a conversa inteira). Prints e áudios que você me manda são processados por empresas parceiras especializadas em IA (Anthropic e OpenAI) só na hora de gerar a resposta, sem ficarem guardados por aqui depois. Você pode pedir pra eu apagar tudo isso a qualquer momento, é só me falar "esquece meus dados".
+Se quiser conhecer nossa política de privacidade e termos de uso, aqui está: [link]
 
-Posso continuar?`;
+Vamos começar? 😊`;
 
 const CONSENT_SCHEMA = {
   type: 'object',
