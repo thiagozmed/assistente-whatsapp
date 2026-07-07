@@ -17,6 +17,11 @@ test('classifyIntent: reconhece burocracia', async (t) => {
   assert.equal(await classifyIntent('não entendi essa tela do INSS'), 'burocracia');
 });
 
+test('classifyIntent: reconhece agenda', async (t) => {
+  t.mock.method(client.messages, 'create', async () => textResponse({ intent: 'agenda' }));
+  assert.equal(await classifyIntent('me lembra de tomar remédio amanhã de manhã'), 'agenda');
+});
+
 test('classifyIntent: reconhece outro', async (t) => {
   t.mock.method(client.messages, 'create', async () => textResponse({ intent: 'outro' }));
   assert.equal(await classifyIntent('oi, bom dia'), 'outro');

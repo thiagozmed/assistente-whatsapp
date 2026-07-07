@@ -6,6 +6,7 @@ function fakeQuery(result) {
     insert: () => builder,
     update: () => builder,
     eq: () => builder,
+    lte: () => builder,
     maybeSingle: () => Promise.resolve(result),
     single: () => Promise.resolve(result),
     then: (resolve, reject) => Promise.resolve(result).then(resolve, reject),

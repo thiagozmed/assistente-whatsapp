@@ -24,6 +24,21 @@ test('explain: personalização do perfil é injetada no system prompt', async (
   assert.match(capturedSystem, /respeitoso e formal/);
 });
 
+test('explain: com imagem, envia content block de visão pro Sonnet', async (t) => {
+  let capturedContent;
+  t.mock.method(client.messages, 'create', async (params) => {
+    capturedContent = params.messages[0].content;
+    return { content: [{ type: 'text', text: '1. Toque em ATUALIZAR CADASTRO.' }] };
+  });
+
+  const image = { mimeType: 'image/jpeg', buffer: Buffer.from('fake-screenshot-bytes') };
+  const reply = await explain('', undefined, image);
+
+  assert.match(reply, /atualizar cadastro/i);
+  assert.equal(capturedContent.length, 1);
+  assert.equal(capturedContent[0].type, 'image');
+});
+
 test('explain: falha de API propaga erro sem travar o processo', async (t) => {
   t.mock.method(client.messages, 'create', async () => {
     throw new Error('simulated Anthropic outage');

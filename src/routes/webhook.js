@@ -1,6 +1,6 @@
 const express = require('express');
-const { handleIncomingText } = require('../services/messageHandler');
-const { sendTextMessage } = require('../services/whatsapp');
+const { handleIncomingText, handleIncomingImage, handleIncomingAudio } = require('../services/messageHandler');
+const { sendTextMessage, downloadMedia } = require('../services/whatsapp');
 const { isValidSignature } = require('../services/webhookSignature');
 
 const router = express.Router();
@@ -37,18 +37,42 @@ router.post('/', verifySignature, (req, res) => {
   const change = entry?.changes?.[0];
   const message = change?.value?.messages?.[0];
 
-  if (!message || message.type !== 'text') return;
+  if (!message) return;
 
   const from = message.from;
-  const text = message.text.body;
+  // Timestamp da própria Meta (unix seconds) como referência de "agora" pra
+  // extração de lembretes — reflete melhor o instante em que o idoso falou
+  // do que o relógio do servidor, caso o processamento atrase.
+  const referenceTimestamp = message.timestamp ? new Date(Number(message.timestamp) * 1000) : new Date();
 
-  handleIncomingText(from, text)
-    .then((reply) => sendTextMessage(from, reply))
-    .catch((err) => {
-      // Nunca logar o erro do axios inteiro — ele carrega os headers da
-      // requisição, incluindo o Authorization Bearer com o token de acesso.
-      console.error('Erro processando mensagem do webhook:', err.response?.data ?? err.message);
-    });
+  const onError = (err) => {
+    // Nunca logar o erro do axios inteiro — ele carrega os headers da
+    // requisição, incluindo o Authorization Bearer com o token de acesso.
+    console.error('Erro processando mensagem do webhook:', err.response?.data ?? err.message);
+  };
+
+  if (message.type === 'text') {
+    handleIncomingText(from, message.text.body, referenceTimestamp)
+      .then((reply) => sendTextMessage(from, reply))
+      .catch(onError);
+    return;
+  }
+
+  if (message.type === 'image') {
+    downloadMedia(message.image.id)
+      .then((media) => handleIncomingImage(from, media, message.image.caption))
+      .then((reply) => sendTextMessage(from, reply))
+      .catch(onError);
+    return;
+  }
+
+  if (message.type === 'audio') {
+    downloadMedia(message.audio.id)
+      .then((media) => handleIncomingAudio(from, media, referenceTimestamp))
+      .then((reply) => sendTextMessage(from, reply))
+      .catch(onError);
+    return;
+  }
 });
 
 module.exports = router;

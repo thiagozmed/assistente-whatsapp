@@ -1,5 +1,6 @@
 const { client, MODELS, firstText, MOCK } = require('./claudeClient');
 const { buildPersonalizedSystemPrompt } = require('./personalization');
+const { buildVisionContent } = require('./mediaContent');
 
 const CLASSIFICATION_SCHEMA = {
   type: 'object',
@@ -28,7 +29,7 @@ Regras:
 - Estrutura: (1) o que é essa mensagem, em 1 frase; (2) o que fazer, em passos curtos e concretos (ex: "não clique", "apague a mensagem", "bloqueie o número").
 - No máximo 5 linhas.`;
 
-function mockClassify(text) {
+function mockClassify(text = '') {
   const lower = text.toLowerCase();
   if (/(clique|link|pr[eê]mio|ganhou|senha|c[oó]digo de verifica[cç][aã]o)/.test(lower)) {
     return {
@@ -42,7 +43,7 @@ function mockClassify(text) {
   };
 }
 
-async function classify(text) {
+async function classify(text, image) {
   if (MOCK) return mockClassify(text);
 
   // output_config.effort não é suportado no Haiku 4.5 — omitir o parâmetro.
@@ -51,7 +52,7 @@ async function classify(text) {
     max_tokens: 512,
     system: CLASSIFY_SYSTEM_PROMPT,
     output_config: { format: { type: 'json_schema', schema: CLASSIFICATION_SCHEMA } },
-    messages: [{ role: 'user', content: text }],
+    messages: [{ role: 'user', content: buildVisionContent(text, image) }],
   });
 
   return JSON.parse(firstText(response));
@@ -82,8 +83,8 @@ async function draftAlert(text, classification, motivo, profile) {
   return firstText(response);
 }
 
-async function checkForScam(text, profile) {
-  const { classification, motivo } = await classify(text);
+async function checkForScam(text, profile, image) {
+  const { classification, motivo } = await classify(text, image);
   const reply = await draftAlert(text, classification, motivo, profile);
   return { classification, motivo, reply };
 }

@@ -2,7 +2,9 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { client } = require('../../src/services/claudeClient');
 const profileStore = require('../../src/services/profileStore');
-const { handleIncomingText } = require('../../src/services/messageHandler');
+const reminderStore = require('../../src/services/reminderStore');
+const transcription = require('../../src/services/transcription');
+const { handleIncomingText, handleIncomingImage, handleIncomingAudio } = require('../../src/services/messageHandler');
 
 function textResponse(payloadOrText) {
   const text = typeof payloadOrText === 'string' ? payloadOrText : JSON.stringify(payloadOrText);
@@ -125,7 +127,41 @@ test('handleIncomingText: intent "outro" cai no fallback', async (t) => {
   t.mock.method(client.messages, 'create', async () => textResponse({ intent: 'outro' }));
 
   const reply = await handleIncomingText('5511999999999', 'oi, bom dia');
-  assert.match(reply, /posso te ajudar de duas formas/i);
+  assert.match(reply, /posso te ajudar de várias formas/i);
+});
+
+test('handleIncomingText: intent "agenda" cria o lembrete e confirma', async (t) => {
+  t.mock.method(profileStore, 'getProfile', async () => COMPLETED_PROFILE);
+  const createMock = t.mock.method(reminderStore, 'createReminder', async () => ({}));
+
+  const reference = new Date('2026-07-07T12:00:00-03:00');
+  let call = 0;
+  t.mock.method(client.messages, 'create', async () => {
+    call += 1;
+    if (call === 1) return textResponse({ intent: 'agenda' }); // router
+    return textResponse({ descricao: 'tomar remédio', quando_iso: '2026-07-08T08:00:00-03:00', recorrente: false }); // agenda.extractReminder
+  });
+
+  const reply = await handleIncomingText('5511999999999', 'me lembra de tomar remédio amanhã às 8', reference);
+  assert.match(reply, /tomar remédio/);
+  assert.equal(createMock.mock.callCount(), 1);
+  assert.equal(createMock.mock.calls[0].arguments[0], '5511999999999');
+});
+
+test('handleIncomingText: intent "agenda" sem data válida não cria lembrete e pede pra repetir', async (t) => {
+  t.mock.method(profileStore, 'getProfile', async () => COMPLETED_PROFILE);
+  const createMock = t.mock.method(reminderStore, 'createReminder', async () => ({}));
+
+  let call = 0;
+  t.mock.method(client.messages, 'create', async () => {
+    call += 1;
+    if (call === 1) return textResponse({ intent: 'agenda' });
+    return textResponse({ descricao: '', quando_iso: '', recorrente: false });
+  });
+
+  const reply = await handleIncomingText('5511999999999', 'me lembra de uma coisa');
+  assert.match(reply, /não consegui entender/i);
+  assert.equal(createMock.mock.callCount(), 0);
 });
 
 test('handleIncomingText: falha da API Claude propaga erro sem travar o processo', async (t) => {
@@ -134,4 +170,74 @@ test('handleIncomingText: falha da API Claude propaga erro sem travar o processo
     throw new Error('simulated Anthropic outage');
   });
   await assert.rejects(() => handleIncomingText('5511999999999', 'oi'), /simulated Anthropic outage/);
+});
+
+const FAKE_IMAGE = { mimeType: 'image/jpeg', buffer: Buffer.from('fake-screenshot-bytes') };
+const FAKE_AUDIO = { mimeType: 'audio/ogg', buffer: Buffer.from('fake-audio-bytes') };
+
+test('handleIncomingImage: número novo dispara onboarding', async (t) => {
+  t.mock.method(profileStore, 'getProfile', async () => null);
+  t.mock.method(profileStore, 'createProfile', async () => ({ onboarding_state: 'aguardando_nome' }));
+
+  const reply = await handleIncomingImage('5511999999999', FAKE_IMAGE, undefined);
+  assert.match(reply, /como você gostaria de me chamar/i);
+});
+
+test('handleIncomingImage: onboarding incompleto pede pra terminar em texto', async (t) => {
+  t.mock.method(profileStore, 'getProfile', async () => ({ onboarding_state: 'aguardando_tom' }));
+
+  const reply = await handleIncomingImage('5511999999999', FAKE_IMAGE, undefined);
+  assert.match(reply, /terminar de te conhecer/i);
+});
+
+test('handleIncomingImage: sem legenda, trata como burocracia', async (t) => {
+  t.mock.method(profileStore, 'getProfile', async () => COMPLETED_PROFILE);
+  const recordMock = t.mock.method(profileStore, 'recordInteraction', async () => COMPLETED_PROFILE);
+  t.mock.method(client.messages, 'create', async () => textResponse('1. Toque em ATUALIZAR CADASTRO.'));
+
+  const reply = await handleIncomingImage('5511999999999', FAKE_IMAGE, undefined);
+  assert.match(reply, /atualizar cadastro/i);
+  assert.equal(recordMock.mock.calls[0].arguments[1].type, 'burocracia');
+});
+
+test('handleIncomingImage: legenda de golpe roteia pro escudo contra golpe', async (t) => {
+  t.mock.method(profileStore, 'getProfile', async () => COMPLETED_PROFILE);
+  const recordMock = t.mock.method(profileStore, 'recordInteraction', async () => COMPLETED_PROFILE);
+
+  let call = 0;
+  t.mock.method(client.messages, 'create', async () => {
+    call += 1;
+    if (call === 1) return textResponse({ intent: 'golpe' }); // router pela legenda
+    if (call === 2) return textResponse({ classification: 'golpe_conhecido', motivo: 'print de golpe' });
+    return textResponse('É golpe. Não clique.');
+  });
+
+  const reply = await handleIncomingImage('5511999999999', FAKE_IMAGE, 'isso é golpe?');
+  assert.match(reply, /não clique/i);
+  assert.equal(recordMock.mock.calls[0].arguments[1].type, 'golpe');
+});
+
+test('handleIncomingAudio: transcreve e processa como texto normal', async (t) => {
+  t.mock.method(transcription, 'transcribeAudio', async () => 'me lembra de tomar remédio amanhã às 8');
+  t.mock.method(profileStore, 'getProfile', async () => COMPLETED_PROFILE);
+  t.mock.method(reminderStore, 'createReminder', async () => ({}));
+
+  let call = 0;
+  t.mock.method(client.messages, 'create', async () => {
+    call += 1;
+    if (call === 1) return textResponse({ intent: 'agenda' });
+    return textResponse({ descricao: 'tomar remédio', quando_iso: '2026-07-08T08:00:00-03:00', recorrente: false });
+  });
+
+  const reply = await handleIncomingAudio('5511999999999', FAKE_AUDIO, new Date('2026-07-07T12:00:00-03:00'));
+  assert.match(reply, /tomar remédio/);
+});
+
+test('handleIncomingAudio: falha de transcrição responde amigável sem travar o processo', async (t) => {
+  t.mock.method(transcription, 'transcribeAudio', async () => {
+    throw new Error('simulated Whisper outage');
+  });
+
+  const reply = await handleIncomingAudio('5511999999999', FAKE_AUDIO);
+  assert.match(reply, /não consegui entender esse áudio/i);
 });

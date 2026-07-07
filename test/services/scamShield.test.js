@@ -71,6 +71,25 @@ test('checkForScam: personalização do perfil é injetada no system prompt do a
   assert.match(capturedSystem, /caloroso e afetuoso/);
 });
 
+test('checkForScam: com imagem, envia content block de visão pro classify (Haiku)', async (t) => {
+  let call = 0;
+  let capturedContent;
+  t.mock.method(client.messages, 'create', async (params) => {
+    call += 1;
+    if (call === 1) {
+      capturedContent = params.messages[0].content;
+      return textResponse({ classification: 'golpe_conhecido', motivo: 'print de golpe do falso banco' });
+    }
+    return textResponse('É golpe. Não clique em nada.');
+  });
+
+  const image = { mimeType: 'image/jpeg', buffer: Buffer.from('fake-screenshot-bytes') };
+  const { classification } = await checkForScam('', undefined, image);
+  assert.equal(classification, 'golpe_conhecido');
+  assert.equal(capturedContent.length, 1);
+  assert.equal(capturedContent[0].type, 'image');
+});
+
 test('checkForScam: falha de API propaga erro sem travar o processo', async (t) => {
   t.mock.method(client.messages, 'create', async () => {
     throw new Error('simulated Anthropic outage');

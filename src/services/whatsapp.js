@@ -42,4 +42,23 @@ async function sendTextMessage(to, body) {
   console.log('Mensagem enviada:', JSON.stringify(response.data));
 }
 
-module.exports = { sendTextMessage };
+// A Meta só entrega um media ID no webhook, não o binário. É preciso um
+// primeiro GET pra pegar a URL assinada temporária do arquivo, e um segundo
+// GET nessa URL (com o mesmo Bearer token) pra baixar o conteúdo de verdade.
+async function downloadMedia(mediaId) {
+  const { token } = getConfig();
+  const metaUrl = `https://graph.facebook.com/${GRAPH_API_VERSION}/${mediaId}`;
+
+  const { data: meta } = await axios.get(metaUrl, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  const { data } = await axios.get(meta.url, {
+    headers: { Authorization: `Bearer ${token}` },
+    responseType: 'arraybuffer',
+  });
+
+  return { buffer: Buffer.from(data), mimeType: meta.mime_type };
+}
+
+module.exports = { sendTextMessage, downloadMedia };

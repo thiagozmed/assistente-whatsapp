@@ -16,11 +16,12 @@ Preencha o `.env`:
 - `WEBHOOK_VERIFY_TOKEN` — qualquer string que você escolher; usada na verificação do webhook com a Meta.
 - `WHATSAPP_APP_SECRET` — Meta App Dashboard → Configurações → Básico → Chave Secreta do Aplicativo. Usada para validar a assinatura (`X-Hub-Signature-256`) de todo `POST /webhook`; sem ela (ou com assinatura inválida), a requisição é rejeitada com 401 antes de processar a mensagem.
 - `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` — Project Settings → API do seu projeto Supabase. Use a **service_role key**, nunca a anon key (esse backend não tem sessão de usuário, é acesso direto de serviço).
+- `OPENAI_API_KEY` — platform.openai.com, usada pra transcrever áudio via Whisper. Sem crédito configurado, deixe `MOCK_TRANSCRIPTION=true` (padrão) pra não quebrar mensagens de áudio localmente.
 
 ### Criar o banco (Supabase)
 
 1. Crie um projeto em [supabase.com](https://supabase.com).
-2. No SQL Editor do projeto, rode o conteúdo de `sql/profiles.sql` (cria a tabela `profiles` com RLS habilitado, sem policy — só a `service_role` acessa).
+2. No SQL Editor do projeto, rode o conteúdo de `sql/profiles.sql` e depois `sql/reminders.sql` (nessa ordem — `reminders` referencia `profiles`). Ambos criam as tabelas com RLS habilitado, sem policy — só a `service_role` acessa.
 3. Copie a Project URL e a `service_role` key (Project Settings → API) pro `.env`.
 
 ## Testar sem WhatsApp real
@@ -60,6 +61,11 @@ O harness só fica disponível quando `NODE_ENV` não é `production` (padrão n
 
 Chamar `POST /webhook` diretamente (fora do harness) agora exige um header `X-Hub-Signature-256` válido, calculado com `WHATSAPP_APP_SECRET` — a Meta já manda isso automaticamente em produção. Pra testar a lógica sem se preocupar com assinatura, use sempre `/test/message`.
 
+**Imagem e áudio (interpretação de print + lembretes) só são testáveis de ponta a ponta pelo WhatsApp real** — o harness `/test/message` só aceita texto (não tem como simular upload de mídia sem o fluxo de download da Meta). Pra testar:
+
+- **Imagem:** manda um print de tela confusa (com ou sem legenda) pro número de WhatsApp conectado.
+- **Áudio:** manda um áudio tipo "me lembra de tomar remédio amanhã às 8 da manhã" — a resposta confirma o lembrete, e a mensagem chega automaticamente no horário marcado (checagem a cada 1 minuto, ver `reminderDispatcher.js`).
+
 ## Conectar ao WhatsApp real
 
 1. Siga os passos do app Meta (veja a conversa de setup ou a documentação do WhatsApp Business Cloud API).
@@ -73,23 +79,29 @@ Chamar `POST /webhook` diretamente (fora do harness) agora exige um header `X-Hu
 ```
 sql/
   profiles.sql                 # DDL da tabela profiles (rodar manualmente no Supabase)
+  reminders.sql                # DDL da tabela reminders (rodar depois de profiles.sql)
 src/
-  server.js                    # entrada do Express
+  server.js                    # entrada do Express + agendador de lembretes
   routes/
-    webhook.js                 # GET (verificação) + POST (recebimento) do WhatsApp
-    testHarness.js             # simula mensagens sem precisar do WhatsApp real
+    webhook.js                 # GET (verificação) + POST (recebimento) do WhatsApp: texto/imagem/áudio
+    testHarness.js             # simula mensagens de texto sem precisar do WhatsApp real
   services/
     claudeClient.js            # cliente Anthropic + modelos usados
     router.js                  # classifica a intenção da mensagem (Haiku 4.5)
-    scamShield.js               # escudo contra golpe (Haiku classifica, Sonnet redige o alerta)
-    bureaucracy.js              # tradutor de burocracia (Sonnet 5)
-    messageHandler.js           # onboarding + roteia a mensagem pro fluxo certo
-    whatsapp.js                 # envio de mensagem via Graph API
+    scamShield.js               # escudo contra golpe (texto ou imagem; Haiku classifica, Sonnet redige o alerta)
+    bureaucracy.js              # tradutor de burocracia (texto ou imagem; Sonnet 5)
+    mediaContent.js              # monta o content block de visão (imagem) pra API Claude
+    messageHandler.js           # onboarding + roteia texto/imagem/áudio pro fluxo certo
+    whatsapp.js                 # envio de mensagem e download de mídia via Graph API
     webhookSignature.js         # valida o HMAC X-Hub-Signature-256 do webhook
     supabaseClient.js           # cliente Supabase (service role)
     profileStore.js             # acesso à tabela profiles (perfil, onboarding, preferências)
     preferences.js               # extrai nome/tom de texto livre (Haiku)
     personalization.js          # injeta nome/tom/contexto no system prompt
+    transcription.js             # transcreve áudio via Whisper (OpenAI)
+    agenda.js                    # extrai descrição/data de um lembrete a partir de texto (Haiku)
+    reminderStore.js             # acesso à tabela reminders
+    reminderDispatcher.js        # dispara lembretes vencidos (cron in-process, 1x por minuto)
 test/
   helpers/setupTestEnv.js       # env dummy, carregado via --require antes dos testes
   helpers/fakeSupabase.js       # fake do builder encadeável do Supabase, só pra testes
@@ -97,13 +109,15 @@ test/
   routes/                       # teste de integração do webhook (app.listen(0) + fetch)
 ```
 
-Rodar os testes: `npm test` (ou `npm run test:watch`). Usa o test runner nativo do Node (`node --test`); Supabase e Anthropic são mockados, então não gasta crédito nem precisa de rede.
+Rodar os testes: `npm test` (ou `npm run test:watch`). Usa o test runner nativo do Node (`node --test`); Supabase, Anthropic, WhatsApp e Whisper são todos mockados, então não gasta crédito nem precisa de rede.
 
 ## Fora de escopo (pendências conhecidas)
 
-- Interpretação de foto/print e transcrição de áudio — fase 4.
-- Lembretes agendados (secretário de agenda) — fase 4.
+- Lembretes recorrentes — só lembrete único no MVP (o campo já existe no schema, sem lógica de repetição).
+- Confirmação de lembrete em áudio (TTS) — só texto por enquanto.
+- Cancelamento/edição de lembrete pelo usuário.
+- Fila de verdade (BullMQ+Redis) pro disparo de lembretes — cron simples in-process resolve bem o volume de uso pessoal do MVP.
 - Módulo família — fase 6.
 - Resumo de histórico mais longo via IA — hoje só a última interação relevante é resumida, deterministicamente.
-- LGPD formal (política de retenção, direito ao esquecimento) — pendência que cresce a partir da Fase 3, já que agora dado pessoal fica persistido de verdade (não só em trânsito); revisão fica pra Fase 7.
+- LGPD formal (política de retenção, direito ao esquecimento) — pendência que cresce a cada fase; a partir de agora envolve também dados de agenda/compromissos potencialmente médicos. Revisão fica pra Fase 7.
 - Rate limiting por usuário — ainda não implementado.
