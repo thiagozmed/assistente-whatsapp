@@ -1,7 +1,10 @@
+// O tom não é mais um enum fixo — é o texto livre que o próprio usuário
+// descreveu (ex: "formal", "informal e brincalhão", "bem sério"). Repassar
+// literalmente pra IA ajustar o jeito de falar, em vez de mapear pra uma
+// instrução pré-escrita.
 function toneInstruction(tone) {
-  if (tone === 'afetuoso') return 'Use um tom próximo, caloroso e afetuoso, como alguém de confiança que se importa.';
-  if (tone === 'formal') return 'Use um tom respeitoso e formal, mantendo distância cordial.';
-  return null;
+  if (!tone) return null;
+  return `O usuário pediu que você fale com ele desse jeito: "${tone}". Ajuste seu tom de conversa pra atender esse pedido.`;
 }
 
 // Base prompt sempre primeiro, personalização sempre depois como sufixo — deixa

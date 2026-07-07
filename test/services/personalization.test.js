@@ -8,16 +8,16 @@ test('sem perfil, devolve o prompt base sem alteração', () => {
   assert.equal(buildPersonalizedSystemPrompt(BASE, null), BASE);
 });
 
-test('perfil com nome e tom afetuoso adiciona instrução de persona', () => {
-  const prompt = buildPersonalizedSystemPrompt(BASE, { assistant_name: 'Zeca', tone: 'afetuoso' });
+test('perfil com nome e tom adiciona instrução de persona', () => {
+  const prompt = buildPersonalizedSystemPrompt(BASE, { assistant_name: 'Zeca', tone: 'informal e brincalhão' });
   assert.match(prompt, /Zeca/);
-  assert.match(prompt, /caloroso e afetuoso/);
+  assert.match(prompt, /informal e brincalhão/);
   assert.match(prompt, new RegExp(`^${BASE}`));
 });
 
-test('perfil com tom formal usa instrução formal', () => {
-  const prompt = buildPersonalizedSystemPrompt(BASE, { assistant_name: null, tone: 'formal' });
-  assert.match(prompt, /respeitoso e formal/);
+test('tom é texto livre — repassa literalmente a descrição do usuário', () => {
+  const prompt = buildPersonalizedSystemPrompt(BASE, { assistant_name: null, tone: 'bem sério e direto ao ponto' });
+  assert.match(prompt, /bem sério e direto ao ponto/);
 });
 
 test('perfil com resumo da última interação inclui o contexto', () => {

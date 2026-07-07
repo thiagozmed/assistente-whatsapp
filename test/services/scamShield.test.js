@@ -66,9 +66,9 @@ test('checkForScam: personalização do perfil é injetada no system prompt do a
     return textResponse('Não clique no link.');
   });
 
-  await checkForScam('Clique aqui e ganhe um prêmio!', { assistant_name: 'Zeca', tone: 'afetuoso' });
+  await checkForScam('Clique aqui e ganhe um prêmio!', { assistant_name: 'Zeca', tone: 'carinhoso e informal' });
   assert.match(capturedSystem, /Zeca/);
-  assert.match(capturedSystem, /caloroso e afetuoso/);
+  assert.match(capturedSystem, /carinhoso e informal/);
 });
 
 test('checkForScam: com imagem, envia content block de visão pro classify (Haiku)', async (t) => {

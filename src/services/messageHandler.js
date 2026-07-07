@@ -24,7 +24,7 @@ const ASK_NAME_MESSAGE = 'Oi! Eu sou seu assistente por aqui. Como você gostari
 const ONBOARDING_RETRY_NAME =
   'Desculpa, não peguei o nome — pode me dizer de novo? Por exemplo: "pode me chamar de Zeca".';
 const ONBOARDING_RETRY_TONE =
-  'Desculpa, não entendi — você prefere que eu fale com você de um jeito mais formal, ou mais próximo e afetuoso?';
+  'Desculpa, não entendi — como você gostaria que eu falasse com você? Pode ser do jeito que você quiser: formal, informal, alegre, sério... fica a seu critério.';
 const ONBOARDING_NEEDS_TEXT_MESSAGE =
   'Antes de eu conseguir olhar essa imagem, preciso terminar de te conhecer — pode responder em texto por enquanto?';
 const TRANSCRIPTION_FAILURE_MESSAGE =
@@ -44,12 +44,11 @@ const CONFIRM_FORGET_RETRY_MESSAGE =
   'Desculpa, não entendi — quer mesmo que eu apague seus dados guardados? Responda só "sim" ou "não".';
 
 function askToneMessage(assistantName) {
-  return `Prazer! Pode me chamar de ${assistantName}. Você prefere que eu fale com você de um jeito mais formal, ou mais próximo e afetuoso?`;
+  return `Prazer! Pode me chamar de ${assistantName}. Como você gostaria que eu falasse com você? Pode ser formal, informal, alegre, sério... fica a seu critério.`;
 }
 
 function welcomeMessage(profile) {
-  const toneLabel = profile.tone === 'formal' ? 'mais formal' : 'mais próximo e afetuoso';
-  return `Combinado! Vou falar com você de um jeito ${toneLabel}. Pode me chamar de ${profile.assistant_name} sempre que precisar. Em que posso ajudar?`;
+  return `Combinado! Vou falar com você desse jeito: ${profile.tone}. Pode me chamar de ${profile.assistant_name} sempre que precisar. Em que posso ajudar?`;
 }
 
 function truncate(text, max) {

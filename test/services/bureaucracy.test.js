@@ -19,9 +19,9 @@ test('explain: personalização do perfil é injetada no system prompt', async (
     return { content: [{ type: 'text', text: '1. Toque em "Atualizar cadastro".' }] };
   });
 
-  await explain('O que eu faço nessa tela?', { assistant_name: 'Zeca', tone: 'formal' });
+  await explain('O que eu faço nessa tela?', { assistant_name: 'Zeca', tone: 'bem formal' });
   assert.match(capturedSystem, /Zeca/);
-  assert.match(capturedSystem, /respeitoso e formal/);
+  assert.match(capturedSystem, /bem formal/);
 });
 
 test('explain: com imagem, envia content block de visão pro Sonnet', async (t) => {

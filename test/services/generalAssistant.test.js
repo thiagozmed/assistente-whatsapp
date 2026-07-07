@@ -74,9 +74,9 @@ test('respond: personalização do perfil é injetada no system prompt da respos
     return textResponse('Oi, Zeca aqui!');
   });
 
-  await respond('oi', { assistant_name: 'Zeca', tone: 'afetuoso' });
+  await respond('oi', { assistant_name: 'Zeca', tone: 'descontraído e engraçado' });
   assert.match(capturedSystem, /Zeca/);
-  assert.match(capturedSystem, /caloroso e afetuoso/);
+  assert.match(capturedSystem, /descontraído e engraçado/);
 });
 
 test('looksLikeCode: reconhece blocos de código markdown e padrões comuns', () => {
