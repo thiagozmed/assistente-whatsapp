@@ -63,6 +63,18 @@ function truncate(text, max) {
   return `${text.slice(0, max)}…`;
 }
 
+// A mensagem de consentimento promete "é só me falar 'esquece meus dados'" a
+// qualquer momento — sem isso, um usuário que pedisse isso no meio do
+// onboarding (antes de onboarding_state === 'completo') caía direto na
+// extração de nome/tom da etapa atual, que ignorava o pedido e insistia
+// perguntando a mesma coisa de novo.
+async function checkOnboardingForgetRequest(phoneNumber, text) {
+  const intent = await classifyIntent(text);
+  if (intent !== 'esquecer') return null;
+  await profileStore.updatePendingAction(phoneNumber, 'confirmar_esquecer');
+  return CONFIRM_FORGET_MESSAGE;
+}
+
 async function handleIncomingText(phoneNumber, text, referenceTimestamp = new Date()) {
   if (text && text.length > MAX_TEXT_LENGTH) return MESSAGE_TOO_LONG_MESSAGE;
 
@@ -87,6 +99,8 @@ async function handleIncomingText(phoneNumber, text, referenceTimestamp = new Da
   }
 
   if (profile.onboarding_state === 'aguardando_consentimento') {
+    const forget = await checkOnboardingForgetRequest(phoneNumber, text);
+    if (forget) return forget;
     const resposta = await consent.interpretConsent(text);
     if (resposta === 'sim') {
       await profileStore.recordConsent(phoneNumber);
@@ -97,6 +111,8 @@ async function handleIncomingText(phoneNumber, text, referenceTimestamp = new Da
   }
 
   if (profile.onboarding_state === 'aguardando_nome') {
+    const forget = await checkOnboardingForgetRequest(phoneNumber, text);
+    if (forget) return forget;
     const name = await preferences.extractAssistantName(text);
     if (!name) return ONBOARDING_RETRY_NAME;
     const updated = await profileStore.updateName(phoneNumber, name);
@@ -104,6 +120,8 @@ async function handleIncomingText(phoneNumber, text, referenceTimestamp = new Da
   }
 
   if (profile.onboarding_state === 'aguardando_tom') {
+    const forget = await checkOnboardingForgetRequest(phoneNumber, text);
+    if (forget) return forget;
     const tone = await preferences.extractTone(text);
     if (!tone) return ONBOARDING_RETRY_TONE;
     const updated = await profileStore.updateTone(phoneNumber, truncate(tone, MAX_TONE_LENGTH));

@@ -5,6 +5,7 @@ const profileStore = require('../../src/services/profileStore');
 const reminderStore = require('../../src/services/reminderStore');
 const transcription = require('../../src/services/transcription');
 const consent = require('../../src/services/consent');
+const preferences = require('../../src/services/preferences');
 const rateLimit = require('../../src/services/rateLimit');
 const generalAssistant = require('../../src/services/generalAssistant');
 const { handleIncomingText, handleIncomingImage, handleIncomingAudio } = require('../../src/services/messageHandler');
@@ -117,6 +118,61 @@ test('handleIncomingText: onboarding aguardando_tom conclui e dá boas-vindas', 
   assert.match(reply, /Zeca/);
   assert.match(reply, /combinado/i);
   assert.match(reply, /alegre e descontraído/);
+});
+
+test('handleIncomingText: pedido de "esquecer" durante aguardando_nome pede confirmação em vez de insistir no nome', async (t) => {
+  t.mock.method(profileStore, 'getProfile', async () => ({
+    phone_number: '5511999999999',
+    onboarding_state: 'aguardando_nome',
+  }));
+  const nameMock = t.mock.method(preferences, 'extractAssistantName', async () => {
+    throw new Error('não deveria tentar extrair nome quando o usuário pediu pra esquecer');
+  });
+  const pendingMock = t.mock.method(profileStore, 'updatePendingAction', async () => ({}));
+  t.mock.method(client.messages, 'create', async () => textResponse({ intent: 'esquecer' }));
+
+  const reply = await handleIncomingText('5511999999999', 'esquece meus dados');
+  assert.match(reply, /tem certeza/i);
+  assert.equal(nameMock.mock.callCount(), 0);
+  assert.equal(pendingMock.mock.calls[0].arguments[0], '5511999999999');
+  assert.equal(pendingMock.mock.calls[0].arguments[1], 'confirmar_esquecer');
+});
+
+test('handleIncomingText: pedido de "esquecer" durante aguardando_tom pede confirmação em vez de insistir no tom', async (t) => {
+  t.mock.method(profileStore, 'getProfile', async () => ({
+    phone_number: '5511999999999',
+    assistant_name: 'Zeca',
+    onboarding_state: 'aguardando_tom',
+  }));
+  const toneMock = t.mock.method(preferences, 'extractTone', async () => {
+    throw new Error('não deveria tentar extrair tom quando o usuário pediu pra esquecer');
+  });
+  const pendingMock = t.mock.method(profileStore, 'updatePendingAction', async () => ({}));
+  t.mock.method(client.messages, 'create', async () => textResponse({ intent: 'esquecer' }));
+
+  const reply = await handleIncomingText('5511999999999', 'esquece meus dados');
+  assert.match(reply, /tem certeza/i);
+  assert.equal(toneMock.mock.callCount(), 0);
+  assert.equal(pendingMock.mock.calls[0].arguments[0], '5511999999999');
+  assert.equal(pendingMock.mock.calls[0].arguments[1], 'confirmar_esquecer');
+});
+
+test('handleIncomingText: pedido de "esquecer" durante aguardando_consentimento pede confirmação em vez de insistir no consentimento', async (t) => {
+  t.mock.method(profileStore, 'getProfile', async () => ({
+    phone_number: '5511999999999',
+    onboarding_state: 'aguardando_consentimento',
+  }));
+  const consentMock = t.mock.method(consent, 'interpretConsent', async () => {
+    throw new Error('não deveria interpretar consentimento quando o usuário pediu pra esquecer');
+  });
+  const pendingMock = t.mock.method(profileStore, 'updatePendingAction', async () => ({}));
+  t.mock.method(client.messages, 'create', async () => textResponse({ intent: 'esquecer' }));
+
+  const reply = await handleIncomingText('5511999999999', 'esquece meus dados');
+  assert.match(reply, /tem certeza/i);
+  assert.equal(consentMock.mock.callCount(), 0);
+  assert.equal(pendingMock.mock.calls[0].arguments[0], '5511999999999');
+  assert.equal(pendingMock.mock.calls[0].arguments[1], 'confirmar_esquecer');
 });
 
 test('handleIncomingText: onboarding aguardando_tom trunca descrição de tom anormalmente longa antes de gravar', async (t) => {
