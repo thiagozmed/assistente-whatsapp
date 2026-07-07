@@ -23,7 +23,7 @@ async function extractReminder(text, referenceDate = new Date()) {
   const response = await client.messages.create({
     model: MODELS.HAIKU,
     max_tokens: 256,
-    system: `Você extrai um lembrete de uma mensagem de um idoso brasileiro (texto ou transcrição de áudio).
+    system: `Você extrai um lembrete de uma mensagem de um usuário brasileiro (texto ou transcrição de áudio).
 Agora é: ${agora} (horário de Brasília, fuso America/Sao_Paulo).
 "descricao": resumo curto do que é o lembrete (ex: "tomar remédio de pressão").
 "quando_iso": data e hora em ISO 8601 com offset -03:00, calculada a partir de "agora" (ex: "amanhã às 3 da tarde" -> data de amanhã, 15:00 -03:00). Deixe vazio ("") se não conseguir determinar uma data/hora específica.

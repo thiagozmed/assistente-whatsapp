@@ -15,14 +15,14 @@ const CLASSIFICATION_SCHEMA = {
   additionalProperties: false,
 };
 
-const CLASSIFY_SYSTEM_PROMPT = `Você é um classificador de golpes digitais (phishing, golpe do PIX, falso funcionário de banco, golpe do WhatsApp clonado, etc) direcionado a idosos no Brasil.
+const CLASSIFY_SYSTEM_PROMPT = `Você é um classificador de golpes digitais (phishing, golpe do PIX, falso funcionário de banco, golpe do WhatsApp clonado, etc) direcionado a usuários com pouca familiaridade com tecnologia no Brasil.
 Classifique a mensagem recebida em:
 - "golpe_conhecido": segue um padrão de golpe já documentado.
 - "suspeito": tem sinais de risco mas não é um padrão claro.
 - "legitimo": não há sinais de golpe.
 Dê um motivo curto e concreto.`;
 
-const ALERT_SYSTEM_PROMPT = `Você escreve alertas de segurança digital para idosos brasileiros com pouca familiaridade com tecnologia.
+const ALERT_SYSTEM_PROMPT = `Você escreve alertas de segurança digital para usuários brasileiros com pouca familiaridade com tecnologia.
 Regras:
 - Português simples e direto, sem jargão técnico.
 - Tom paciente, nunca condescendente ou alarmista.
@@ -75,7 +75,7 @@ async function draftAlert(text, classification, motivo, profile) {
     messages: [
       {
         role: 'user',
-        content: `Mensagem suspeita recebida:\n"""${text}"""\n\nClassificação: ${classification}\nMotivo: ${motivo}\n\nEscreva o alerta para o idoso.`,
+        content: `Mensagem suspeita recebida:\n"""${text}"""\n\nClassificação: ${classification}\nMotivo: ${motivo}\n\nEscreva o alerta para o usuário.`,
       },
     ],
   });

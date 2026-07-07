@@ -36,7 +36,7 @@ const DATA_DELETED_MESSAGE = 'Pronto, apaguei todos os seus dados que eu tinha g
 
 // Confirmação explícita antes de apagar (CLAUDE.md 6.3 / risco de SIM swap ou
 // celular roubado): sem isso, uma única mensagem de quem estiver de posse do
-// número do idoso apagava tudo na hora, sem chance de desfazer.
+// número do usuário apagava tudo na hora, sem chance de desfazer.
 const CONFIRM_FORGET_MESSAGE =
   'Tem certeza que quer que eu apague tudo que guardei sobre você — nome, preferências e lembretes? Isso não pode ser desfeito. Responda "sim" pra confirmar, ou "não" pra deixar como está.';
 const FORGET_CANCELLED_MESSAGE = 'Tudo bem, não vou apagar nada. Seus dados continuam guardados normalmente.';
