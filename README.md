@@ -15,6 +15,7 @@ Preencha o `.env`:
 - `WHATSAPP_ACCESS_TOKEN` / `WHATSAPP_PHONE_NUMBER_ID` — do painel do app no Meta for Developers (WhatsApp → API Setup). Não são necessários para testar a lógica localmente (veja abaixo).
 - `WEBHOOK_VERIFY_TOKEN` — qualquer string que você escolher; usada na verificação do webhook com a Meta.
 - `WHATSAPP_APP_SECRET` — Meta App Dashboard → Configurações → Básico → Chave Secreta do Aplicativo. Usada para validar a assinatura (`X-Hub-Signature-256`) de todo `POST /webhook`; sem ela (ou com assinatura inválida), a requisição é rejeitada com 401 antes de processar a mensagem.
+- `WHATSAPP_BUSINESS_ACCOUNT_ID` — Meta App Dashboard → WhatsApp → API Setup → "ID da conta comercial do WhatsApp". Só usada pelos scripts de criação/consulta do template de lembretes (ver abaixo), não pelo app em si.
 - `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` — Project Settings → API do seu projeto Supabase. Use a **service_role key**, nunca a anon key (esse backend não tem sessão de usuário, é acesso direto de serviço).
 - `OPENAI_API_KEY` — platform.openai.com, usada pra transcrever áudio via Whisper. Sem crédito configurado, deixe `MOCK_TRANSCRIPTION=true` (padrão) pra não quebrar mensagens de áudio localmente.
 
@@ -23,6 +24,14 @@ Preencha o `.env`:
 1. Crie um projeto em [supabase.com](https://supabase.com).
 2. No SQL Editor do projeto, rode o conteúdo de `sql/profiles.sql` e depois `sql/reminders.sql` (nessa ordem — `reminders` referencia `profiles`). Ambos criam as tabelas com RLS habilitado, sem policy — só a `service_role` acessa.
 3. Copie a Project URL e a `service_role` key (Project Settings → API) pro `.env`.
+
+### Criar o template dos lembretes (obrigatório antes de usar lembretes de verdade)
+
+Lembretes são mensagens que o bot manda por conta própria, sem o usuário ter escrito antes — a API do WhatsApp só permite isso fora da janela de 24h usando um **message template pré-aprovado pela Meta**, não texto livre.
+
+1. Preencha `WHATSAPP_BUSINESS_ACCOUNT_ID` no `.env` (Meta App Dashboard → WhatsApp → API Setup → "ID da conta comercial do WhatsApp").
+2. Rode `node scripts/createReminderTemplate.js` — cria o template `lembrete_agendado` (categoria UTILITY) e envia pra revisão da Meta.
+3. Acompanhe a aprovação com `node scripts/checkReminderTemplate.js` (normalmente minutos, às vezes mais). Enquanto o status não for `APPROVED`, o disparo de lembretes falha.
 
 ## Testar sem WhatsApp real
 
@@ -80,6 +89,9 @@ Chamar `POST /webhook` diretamente (fora do harness) agora exige um header `X-Hu
 sql/
   profiles.sql                 # DDL da tabela profiles (rodar manualmente no Supabase)
   reminders.sql                # DDL da tabela reminders (rodar depois de profiles.sql)
+scripts/
+  createReminderTemplate.js    # cria o message template dos lembretes no WABA (rodar uma vez)
+  checkReminderTemplate.js     # consulta o status de aprovação do template
 src/
   server.js                    # entrada do Express + agendador de lembretes
   routes/

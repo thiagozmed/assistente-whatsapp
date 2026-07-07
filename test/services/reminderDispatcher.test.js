@@ -6,7 +6,7 @@ const { dispatchDueReminders, startReminderScheduler } = require('../../src/serv
 
 test('dispatchDueReminders: sem lembretes vencidos, não chama WhatsApp', async (t) => {
   t.mock.method(reminderStore, 'getDueReminders', async () => []);
-  const sendMock = t.mock.method(whatsapp, 'sendTextMessage', async () => {});
+  const sendMock = t.mock.method(whatsapp, 'sendTemplateMessage', async () => {});
 
   const count = await dispatchDueReminders(new Date());
   assert.equal(count, 0);
@@ -19,19 +19,20 @@ test('dispatchDueReminders: reivindica antes de enviar cada lembrete vencido', a
     { id: 'r2', phone_number: '456', description: 'consulta médica' },
   ]);
   const claimMock = t.mock.method(reminderStore, 'claimReminder', async (id) => ({ id, status: 'enviado' }));
-  const sendMock = t.mock.method(whatsapp, 'sendTextMessage', async () => {});
+  const sendMock = t.mock.method(whatsapp, 'sendTemplateMessage', async () => {});
 
   const count = await dispatchDueReminders(new Date());
   assert.equal(count, 2);
   assert.equal(claimMock.mock.callCount(), 2);
   assert.equal(sendMock.mock.callCount(), 2);
-  assert.match(sendMock.mock.calls[0].arguments[1], /tomar remédio/);
+  assert.equal(sendMock.mock.calls[0].arguments[1], 'lembrete_agendado');
+  assert.deepEqual(sendMock.mock.calls[0].arguments[3], ['tomar remédio']);
 });
 
 test('dispatchDueReminders: lembrete já reivindicado por outro processo não é enviado de novo', async (t) => {
   t.mock.method(reminderStore, 'getDueReminders', async () => [{ id: 'r1', phone_number: '123', description: 'tomar remédio' }]);
   t.mock.method(reminderStore, 'claimReminder', async () => null); // outro processo já reivindicou
-  const sendMock = t.mock.method(whatsapp, 'sendTextMessage', async () => {});
+  const sendMock = t.mock.method(whatsapp, 'sendTemplateMessage', async () => {});
 
   const count = await dispatchDueReminders(new Date());
   assert.equal(count, 0);
@@ -46,7 +47,7 @@ test('dispatchDueReminders: falha ao enviar um lembrete devolve ele pra pendente
   t.mock.method(reminderStore, 'claimReminder', async (id) => ({ id, status: 'enviado' }));
   const releaseMock = t.mock.method(reminderStore, 'releaseReminder', async () => {});
   let call = 0;
-  t.mock.method(whatsapp, 'sendTextMessage', async () => {
+  t.mock.method(whatsapp, 'sendTemplateMessage', async () => {
     call += 1;
     if (call === 1) throw new Error('simulated WhatsApp outage');
   });

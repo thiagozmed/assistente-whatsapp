@@ -1,6 +1,12 @@
 const reminderStore = require('./reminderStore');
 const whatsapp = require('./whatsapp');
 
+// Lembrete é sempre mensagem iniciada pelo bot, fora da janela de 24h da
+// última mensagem do usuário — precisa de um template aprovado pela Meta,
+// não texto livre. Ver scripts/createReminderTemplate.js.
+const REMINDER_TEMPLATE_NAME = 'lembrete_agendado';
+const REMINDER_TEMPLATE_LANGUAGE = 'pt_BR';
+
 async function dispatchDueReminders(now = new Date()) {
   const due = await reminderStore.getDueReminders(now);
 
@@ -14,7 +20,12 @@ async function dispatchDueReminders(now = new Date()) {
       const claimed = await reminderStore.claimReminder(reminder.id);
       if (!claimed) return false;
       try {
-        await whatsapp.sendTextMessage(reminder.phone_number, `⏰ Lembrete: ${reminder.description}`);
+        await whatsapp.sendTemplateMessage(
+          reminder.phone_number,
+          REMINDER_TEMPLATE_NAME,
+          REMINDER_TEMPLATE_LANGUAGE,
+          [reminder.description],
+        );
         return true;
       } catch (err) {
         // Falhou depois de reivindicado: devolve pra pendente pra tentar de

@@ -42,6 +42,32 @@ async function sendTextMessage(to, body) {
   console.log('Mensagem enviada:', JSON.stringify(response.data));
 }
 
+// Fora da janela de 24h desde a última mensagem do usuário, a API do
+// WhatsApp rejeita texto livre — só aceita um "message template" pré-aprovado
+// pela Meta. É o caso dos lembretes, que o bot dispara por conta própria.
+async function sendTemplateMessage(to, templateName, languageCode, bodyParams = []) {
+  const { token, phoneNumberId } = getConfig();
+  const url = `https://graph.facebook.com/${GRAPH_API_VERSION}/${phoneNumberId}/messages`;
+  const normalizedTo = normalizeBrazilianNumber(to);
+
+  const components = bodyParams.length
+    ? [{ type: 'body', parameters: bodyParams.map((text) => ({ type: 'text', text })) }]
+    : undefined;
+
+  const response = await axios.post(
+    url,
+    {
+      messaging_product: 'whatsapp',
+      to: normalizedTo,
+      type: 'template',
+      template: { name: templateName, language: { code: languageCode }, components },
+    },
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+
+  console.log('Mensagem (template) enviada:', JSON.stringify(response.data));
+}
+
 // A Meta só entrega um media ID no webhook, não o binário. É preciso um
 // primeiro GET pra pegar a URL assinada temporária do arquivo, e um segundo
 // GET nessa URL (com o mesmo Bearer token) pra baixar o conteúdo de verdade.
@@ -61,4 +87,4 @@ async function downloadMedia(mediaId) {
   return { buffer: Buffer.from(data), mimeType: meta.mime_type };
 }
 
-module.exports = { sendTextMessage, downloadMedia };
+module.exports = { sendTextMessage, sendTemplateMessage, downloadMedia };

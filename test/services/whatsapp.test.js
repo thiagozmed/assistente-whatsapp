@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const axios = require('axios');
-const { sendTextMessage, downloadMedia } = require('../../src/services/whatsapp');
+const { sendTextMessage, sendTemplateMessage, downloadMedia } = require('../../src/services/whatsapp');
 
 test('sendTextMessage: sucesso chama a Graph API com o número normalizado', async (t) => {
   let capturedUrl;
@@ -26,6 +26,32 @@ test('sendTextMessage: falha de envio propaga o erro sem travar o processo', asy
   });
 
   await assert.rejects(() => sendTextMessage('554891466284', 'Oi!'), /simulated WhatsApp outage/);
+});
+
+test('sendTemplateMessage: monta o payload de template com parâmetro do corpo', async (t) => {
+  let capturedBody;
+  t.mock.method(axios, 'post', async (url, body) => {
+    capturedBody = body;
+    return { data: { messages: [{ id: 'wamid.456' }] } };
+  });
+
+  await sendTemplateMessage('554891466284', 'lembrete_agendado', 'pt_BR', ['tomar remédio']);
+
+  assert.equal(capturedBody.type, 'template');
+  assert.equal(capturedBody.template.name, 'lembrete_agendado');
+  assert.equal(capturedBody.template.language.code, 'pt_BR');
+  assert.deepEqual(capturedBody.template.components, [{ type: 'body', parameters: [{ type: 'text', text: 'tomar remédio' }] }]);
+});
+
+test('sendTemplateMessage: falha de envio propaga o erro sem travar o processo', async (t) => {
+  t.mock.method(axios, 'post', async () => {
+    throw new Error('simulated WhatsApp outage');
+  });
+
+  await assert.rejects(
+    () => sendTemplateMessage('554891466284', 'lembrete_agendado', 'pt_BR', ['tomar remédio']),
+    /simulated WhatsApp outage/,
+  );
 });
 
 test('downloadMedia: baixa o binário em dois GETs (metadata -> arquivo)', async (t) => {
