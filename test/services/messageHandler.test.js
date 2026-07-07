@@ -96,7 +96,7 @@ test('handleIncomingText: onboarding aguardando_nome extrai o nome e pergunta o 
 
   const reply = await handleIncomingText('5511999999999', 'pode me chamar de Zeca');
   assert.match(reply, /Zeca/);
-  assert.match(reply, /formal.*afetuoso|afetuoso.*formal/i);
+  assert.match(reply, /como você gostaria que eu falasse/i);
 });
 
 test('handleIncomingText: onboarding aguardando_tom conclui e dá boas-vindas', async (t) => {
@@ -111,11 +111,12 @@ test('handleIncomingText: onboarding aguardando_tom conclui e dá boas-vindas', 
     tone,
     onboarding_state: 'completo',
   }));
-  t.mock.method(client.messages, 'create', async () => textResponse({ tone: 'afetuoso' }));
+  t.mock.method(client.messages, 'create', async () => textResponse({ tone: 'alegre e descontraído' }));
 
-  const reply = await handleIncomingText('5511999999999', 'pode ser mais afetuoso');
+  const reply = await handleIncomingText('5511999999999', 'pode ser bem alegre e descontraído');
   assert.match(reply, /Zeca/);
   assert.match(reply, /combinado/i);
+  assert.match(reply, /alegre e descontraído/);
 });
 
 test('handleIncomingText: golpe -> alerta redigido pelo Sonnet e resumo registrado', async (t) => {
@@ -164,7 +165,7 @@ test('handleIncomingText: intent "preferencia" atualiza o perfil e confirma', as
   t.mock.method(client.messages, 'create', async () => {
     call += 1;
     if (call === 1) return textResponse({ intent: 'preferencia' }); // router
-    return textResponse({ name: 'Cuca', tone: 'nenhuma' }); // preferences.extractPreferenceUpdate
+    return textResponse({ name: 'Cuca', tone: '' }); // preferences.extractPreferenceUpdate
   });
 
   const reply = await handleIncomingText('5511999999999', 'quero te chamar de outro nome, Cuca');

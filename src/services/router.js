@@ -13,7 +13,7 @@ const INTENT_SCHEMA = {
 const SYSTEM_PROMPT = `Você classifica mensagens (às vezes com uma imagem anexada) recebidas de um usuário no WhatsApp em uma de seis categorias:
 - "golpe": o usuário encaminhou uma mensagem, print ou texto suspeito e quer saber se é golpe.
 - "burocracia": o texto ou a imagem é uma tela ou documento confuso de banco, INSS, Receita Federal ou plano de saúde, e o usuário quer entender o que fazer.
-- "preferencia": o usuário quer mudar como o assistente o trata — o nome que usa pra chamar o assistente, ou o tom de conversa (mais formal ou mais próximo/afetuoso).
+- "preferencia": o usuário quer mudar como o assistente o trata — o nome que usa pra chamar o assistente, ou o tom de conversa (a escolha é livre: formal, informal, alegre, sério, o que a pessoa quiser).
 - "agenda": o usuário quer ser lembrado de algo depois — um compromisso, remédio, consulta ou recado (ex: "me lembra de tomar remédio amanhã de manhã").
 - "esquecer": o usuário quer que o assistente apague os dados guardados sobre ele (ex: "esquece meus dados", "apaga tudo que você sabe sobre mim").
 - "outro": qualquer outra coisa — incluindo fotos e perguntas sobre qualquer assunto do dia a dia que não seja golpe nem burocracia (ex: um aparelho de exercício, uma planta, uma receita, um produto, uma dúvida geral).

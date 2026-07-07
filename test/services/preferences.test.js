@@ -17,32 +17,37 @@ test('extractAssistantName: string vazia vira null', async (t) => {
   assert.equal(await preferences.extractAssistantName('não sei'), null);
 });
 
-test('extractTone: reconhece formal e afetuoso', async (t) => {
+test('extractTone: extrai a descrição livre do tom pedido', async (t) => {
   t.mock.method(client.messages, 'create', async () => textResponse({ tone: 'formal' }));
   assert.equal(await preferences.extractTone('prefiro algo mais formal'), 'formal');
 });
 
-test('extractTone: indefinido vira null', async (t) => {
-  t.mock.method(client.messages, 'create', async () => textResponse({ tone: 'indefinido' }));
+test('extractTone: aceita qualquer descrição, não só formal/informal', async (t) => {
+  t.mock.method(client.messages, 'create', async () => textResponse({ tone: 'alegre e engraçado' }));
+  assert.equal(await preferences.extractTone('quero que você seja bem alegre e engraçado comigo'), 'alegre e engraçado');
+});
+
+test('extractTone: string vazia (não identificou pedido de tom) vira null', async (t) => {
+  t.mock.method(client.messages, 'create', async () => textResponse({ tone: '' }));
   assert.equal(await preferences.extractTone('sei lá'), null);
 });
 
 test('extractPreferenceUpdate: extrai nome e tom da mesma frase', async (t) => {
-  t.mock.method(client.messages, 'create', async () => textResponse({ name: 'Zeca', tone: 'formal' }));
-  const result = await preferences.extractPreferenceUpdate('quero te chamar de Zeca e falar mais formal');
-  assert.deepEqual(result, { name: 'Zeca', tone: 'formal' });
+  t.mock.method(client.messages, 'create', async () => textResponse({ name: 'Zeca', tone: 'sério e direto' }));
+  const result = await preferences.extractPreferenceUpdate('quero te chamar de Zeca e falar mais sério e direto');
+  assert.deepEqual(result, { name: 'Zeca', tone: 'sério e direto' });
 });
 
 test('extractPreferenceUpdate: campo ausente vira null (atualização parcial)', async (t) => {
-  t.mock.method(client.messages, 'create', async () => textResponse({ name: '', tone: 'afetuoso' }));
-  const result = await preferences.extractPreferenceUpdate('fala comigo de um jeito mais afetuoso');
-  assert.deepEqual(result, { name: null, tone: 'afetuoso' });
+  t.mock.method(client.messages, 'create', async () => textResponse({ name: '', tone: 'mais descontraído' }));
+  const result = await preferences.extractPreferenceUpdate('fala comigo de um jeito mais descontraído');
+  assert.deepEqual(result, { name: null, tone: 'mais descontraído' });
 });
 
 test('buildConfirmationMessage: nome e tom juntos', () => {
-  const msg = preferences.buildConfirmationMessage({ name: 'Zeca', tone: 'formal' });
+  const msg = preferences.buildConfirmationMessage({ name: 'Zeca', tone: 'sério' });
   assert.match(msg, /Zeca/);
-  assert.match(msg, /formal/);
+  assert.match(msg, /sério/);
 });
 
 test('buildConfirmationMessage: nenhuma preferência reconhecida pede pra repetir', () => {
