@@ -2,7 +2,7 @@ const { client, MODELS, firstText, MOCK } = require('./claudeClient');
 const { buildPersonalizedSystemPrompt } = require('./personalization');
 const { buildVisionContent } = require('./mediaContent');
 
-const SYSTEM_PROMPT = `Você explica telas e textos de burocracia digital brasileira (banco, INSS, Receita Federal, plano de saúde) para idosos com pouca familiaridade com tecnologia.
+const SYSTEM_PROMPT = `Você explica telas e textos de burocracia digital brasileira (banco, INSS, Receita Federal, plano de saúde) para usuários com pouca familiaridade com tecnologia.
 Regras:
 - Português simples, direto, sem jargão.
 - Tom sempre paciente — nunca faça o usuário sentir que a dúvida é "boba".

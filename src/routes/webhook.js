@@ -44,7 +44,7 @@ router.post('/', verifySignature, (req, res) => {
 
   const from = message.from;
   // Timestamp da própria Meta (unix seconds) como referência de "agora" pra
-  // extração de lembretes — reflete melhor o instante em que o idoso falou
+  // extração de lembretes — reflete melhor o instante em que o usuário falou
   // do que o relógio do servidor, caso o processamento atrase.
   const referenceTimestamp = message.timestamp ? new Date(Number(message.timestamp) * 1000) : new Date();
 

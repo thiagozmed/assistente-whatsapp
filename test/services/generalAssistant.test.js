@@ -119,6 +119,38 @@ test('respond: com imagem, usa Sonnet e envia o content block de visão, mesmo c
   assert.equal(capturedContent[0].type, 'image');
 });
 
+test('respond: pergunta que depende de informação atual habilita a busca e escala pro Sonnet', async (t) => {
+  let call = 0;
+  let capturedModel;
+  let capturedTools;
+  t.mock.method(client.messages, 'create', async (params) => {
+    call += 1;
+    if (call === 1) return textResponse({ blocked_reason: 'nenhum', complexity: 'simples', needs_search: true });
+    capturedModel = params.model;
+    capturedTools = params.tools;
+    return textResponse('O jogo do Brasil é hoje às 16h.');
+  });
+
+  const reply = await respond('a que horas é o jogo do brasil hoje', {});
+  assert.match(reply, /16h/);
+  assert.equal(capturedModel, MODELS.SONNET);
+  assert.deepEqual(capturedTools, [{ type: 'web_search_20260209', name: 'web_search', max_uses: 2 }]);
+});
+
+test('respond: pergunta comum não habilita busca nem manda o parâmetro tools', async (t) => {
+  let call = 0;
+  let capturedTools = 'not-set';
+  t.mock.method(client.messages, 'create', async (params) => {
+    call += 1;
+    if (call === 1) return textResponse({ blocked_reason: 'nenhum', complexity: 'simples', needs_search: false });
+    capturedTools = params.tools;
+    return textResponse('Bom dia!');
+  });
+
+  await respond('bom dia', {});
+  assert.equal(capturedTools, undefined);
+});
+
 test('respond: falha de API propaga erro sem travar o processo', async (t) => {
   t.mock.method(client.messages, 'create', async () => {
     throw new Error('simulated Anthropic outage');

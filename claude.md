@@ -1,4 +1,4 @@
-# Assistente de IA para Idosos via WhatsApp — CLAUDE.md
+# Assistente de IA Educativo via WhatsApp — CLAUDE.md
 
 ## 1. Posicionamento estratégico
 
@@ -8,37 +8,37 @@ O WhatsApp já é a interface que qualquer pessoa, de qualquer idade, sabe usar 
 - Especialização na dor de quem tem baixa literacia digital (paciência, linguagem simples, proatividade)
 - Confiança e intimidade desenhadas com cuidado (não é só "uma IA a mais", é presença constante e consistente)
 - Módulo família com consentimento explícito — algo que uma big tech generalista não prioriza para este nicho
-- Postura educativa: cada resposta é uma chance de o idoso entender um pouco mais e ganhar autonomia com tecnologia, não só de resolver a tarefa pontual
+- Postura educativa: cada resposta é uma chance de o usuário entender um pouco mais e ganhar autonomia com tecnologia, não só de resolver a tarefa pontual
 
 **Não somos "outro chatbot no WhatsApp". Somos a camada de confiança e cuidado que falta no ecossistema de IA genérica.**
 
 ## 2. Personas
 
-- **Idoso (usuário principal):** 60+, já usa WhatsApp no dia a dia, dificuldade com apps/telas novas, medo de golpe, quer autonomia sem depender do filho toda hora.
+- **Usuário com pouca familiaridade com tecnologia (persona principal):** majoritariamente pessoas 60+, mas não exclusivamente — já usa WhatsApp no dia a dia, dificuldade com apps/telas novas, medo de golpe, quer autonomia sem depender de um familiar toda hora.
 - **Filho/filha (comprador do módulo família):** adulto, preocupado com os pais à distância, quer tranquilidade sem invadir a privacidade deles.
 
 ## 3. Princípios não negociáveis de produto
 
 1. **Transparência sobre ser IA.** O assistente pode ter nome e personalidade calorosa, mas nunca finge ser humano se perguntado diretamente.
-2. **Não substitui vínculo humano.** Se o idoso expressar que o assistente é "o único" que o entende ou o escuta, a resposta deve acolher com carinho e reforçar gentilmente o valor de contato com família/amigos — nunca absorver esse papel.
+2. **Não substitui vínculo humano.** Se o usuário expressar que o assistente é "o único" que o entende ou o escuta, a resposta deve acolher com carinho e reforçar gentilmente o valor de contato com família/amigos — nunca absorver esse papel.
 3. **Consentimento explícito e revogável no módulo família.** Item por item, nunca aceite genérico. Nunca modo oculto/espião.
 4. **Sem mocks a partir de agora.** Toda funcionalidade implementada deve rodar contra os serviços reais (WhatsApp Cloud API real, API Claude real, banco real). Nada de simular resposta ou dado fictício "pra depois trocar".
 5. **Nenhuma fase avança sem testes automatizados passando.** Cobertura mínima: o caminho feliz de cada funcionalidade nova + os casos de erro previsíveis (falha de API externa, entrada inválida, timeout).
 6. **Segurança pensada desde a primeira linha de código**, não deixada para o final (ver seção 6).
-7. **Postura educativa, não só executiva.** Sempre que possível, explique o "porquê" além do "o quê" (ex: pra que serve cada botão, não só "aperte aqui") — o objetivo é aumentar a autonomia e a confiança do idoso com tecnologia ao longo do tempo, não só resolver a tarefa pontual. Essa lente também ajuda a decidir escopo de funcionalidade nova: priorizar o que ensina em vez de só automatizar.
+7. **Postura educativa, não só executiva.** Sempre que possível, explique o "porquê" além do "o quê" (ex: pra que serve cada botão, não só "aperte aqui") — o objetivo é aumentar a autonomia e a confiança do usuário com tecnologia ao longo do tempo, não só resolver a tarefa pontual. Essa lente também ajuda a decidir escopo de funcionalidade nova: priorizar o que ensina em vez de só automatizar.
 
-## 4. Funcionalidades do usuário principal (idoso)
+## 4. Funcionalidades do usuário principal
 
 O assistente é de propósito geral (pode responder qualquer coisa que uma IA normalmente responde), com as seguintes funções como destaque de produto e prioridade de desenvolvimento:
 
 ### 4.1 Escudo contra golpe (prioridade máxima — maior gancho comercial)
-- Idoso encaminha mensagem/print suspeito.
+- Usuário encaminha mensagem/print suspeito.
 - IA classifica: golpe conhecido, suspeito, ou legítimo.
 - Resposta simples e direta: o que é, o que fazer.
 - Se módulo família ativo e consentido: gera alerta resumido para o filho.
 
 ### 4.2 Tradutor de burocracia digital
-- Idoso manda foto de tela confusa (banco, plano de saúde, INSS, Receita).
+- Usuário manda foto de tela confusa (banco, plano de saúde, INSS, Receita).
 - IA explica em português simples, passo a passo, sempre paciente, nunca condescendente.
 
 ### 4.3 Secretário de agenda e recados por voz
@@ -61,12 +61,12 @@ O assistente é de propósito geral (pode responder qualquer coisa que uma IA no
 
 ## 5. Módulo Família (add-on pago, opt-in)
 
-**Regra de ouro:** o idoso sempre sabe o que é compartilhado.
+**Regra de ouro:** o usuário sempre sabe o que é compartilhado.
 
 Fluxo de ativação:
 1. Filho contrata o módulo.
-2. Assistente avisa o idoso e pede consentimento explícito, item por item.
-3. Idoso pode revogar qualquer item a qualquer momento, falando naturalmente com o assistente.
+2. Assistente avisa o usuário e pede consentimento explícito, item por item.
+3. Usuário pode revogar qualquer item a qualquer momento, falando naturalmente com o assistente.
 
 Funcionalidades (cada uma com consentimento próprio), **entregues via WhatsApp, sem dashboard nesta fase**:
 - Alerta de golpe em tempo real para o filho.
@@ -77,7 +77,7 @@ Funcionalidades (cada uma com consentimento próprio), **entregues via WhatsApp,
 
 **Nunca incluir:** leitura de conversas privadas com terceiros, localização contínua sem ativação explícita a cada uso, qualquer feature que pareça controle em vez de cuidado.
 
-**Decisão em aberto — dashboard:** avaliado e adiado deliberadamente. Para o idoso, um dashboard contradiz a proposta de valor (zero fricção de interface). Para o filho, a recomendação é validar a demanda primeiro com resumos via WhatsApp (Fase 3) — só construir dashboard web se, depois de uso real, surgir pedido explícito por histórico/gráficos. Revisitar esta decisão ao final da Fase 3.
+**Decisão em aberto — dashboard:** avaliado e adiado deliberadamente. Para o usuário, um dashboard contradiz a proposta de valor (zero fricção de interface). Para o filho, a recomendação é validar a demanda primeiro com resumos via WhatsApp (Fase 3) — só construir dashboard web se, depois de uso real, surgir pedido explícito por histórico/gráficos. Revisitar esta decisão ao final da Fase 3.
 
 ## 6. Arquitetura técnica
 
@@ -107,7 +107,7 @@ Funcionalidades (cada uma com consentimento próprio), **entregues via WhatsApp,
 - **Rate limiting por usuário:** limite de mensagens/dia por número, para conter custo e abuso.
 - **Bloqueio de categorias fora de escopo:** geração de código e geração de imagem devem ser recusadas pelo próprio assistente antes de chegar à chamada de IA mais cara, quando possível detectar por triagem barata (Haiku).
 - **Sanitização de input:** nunca repassar conteúdo de mensagens recebidas diretamente para logs ou storage sem tratamento — evitar vazamento de dados pessoais em logs de debug.
-- **LGPD:** dados de idosos são dados pessoais sensíveis por natureza do produto (saúde, financeiro, localização de compromissos). Consentimento explícito e política de retenção de dados devem existir antes do primeiro usuário real fora do próprio time.
+- **LGPD:** dados dos usuários são dados pessoais sensíveis por natureza do produto (saúde, financeiro, localização de compromissos). Consentimento explícito e política de retenção de dados devem existir antes do primeiro usuário real fora do próprio time.
 - **Isolamento de dados entre clientes/contas de teste:** ao configurar acesso no Meta Business, sempre restringir explicitamente a conta de WhatsApp em uso, nunca aceitar "todas as contas atuais e futuras".
 
 ## 7. Regras de desenvolvimento (para o Claude Code CLI seguir em toda sessão)
@@ -153,7 +153,7 @@ Funcionalidades (cada uma com consentimento próprio), **entregues via WhatsApp,
 - Fluxo de consentimento item por item.
 - Alertas e resumos semanais via WhatsApp para o filho.
 - Testes cobrindo: consentimento aceito, consentimento revogado, alerta disparado corretamente, resumo semanal correto.
-- **Critério de validação:** um filho de teste recebe alerta real de golpe e resumo semanal real, com o idoso ciente do que foi compartilhado.
+- **Critério de validação:** um filho de teste recebe alerta real de golpe e resumo semanal real, com o usuário ciente do que foi compartilhado.
 
 **Fase 7 — Revisão geral de segurança e qualidade de código**
 - Auditoria completa do código acumulado.
@@ -167,7 +167,7 @@ Funcionalidades (cada uma com consentimento próprio), **entregues via WhatsApp,
 
 ## 9. Métricas de validação
 
-- Idoso consegue usar sem ajuda do filho após a primeira explicação?
+- Usuário consegue usar sem ajuda de um familiar após a primeira explicação?
 - Quantas vezes por semana ele volta a usar espontaneamente?
 - O escudo contra golpe gerou algum "momento uau" real (evitou um golpe de fato)?
 - Filho pagaria pelo módulo família só de ver o protótipo funcionando via WhatsApp, sem dashboard?
