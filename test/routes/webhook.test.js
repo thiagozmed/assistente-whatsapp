@@ -143,6 +143,8 @@ test('POST /webhook: assinatura inválida retorna 401 e não chama a IA', async 
 
 test('POST /webhook: assinatura válida processa a mensagem e responde no WhatsApp', async (t) => {
   t.mock.method(profileStore, 'getProfile', async () => COMPLETED_PROFILE);
+  t.mock.method(profileStore, 'updateDailyMessageCount', async () => COMPLETED_PROFILE);
+  t.mock.method(profileStore, 'recordInteraction', async () => COMPLETED_PROFILE);
   t.mock.method(client.messages, 'create', async () => ({
     content: [{ type: 'text', text: JSON.stringify({ intent: 'outro' }) }],
   }));
@@ -192,6 +194,7 @@ test('POST /webhook: falha da API Claude não derruba o servidor', async (t) => 
 
 test('POST /webhook: mensagem de imagem baixa a mídia e responde explicando a tela', async (t) => {
   t.mock.method(profileStore, 'getProfile', async () => COMPLETED_PROFILE);
+  t.mock.method(profileStore, 'updateDailyMessageCount', async () => COMPLETED_PROFILE);
   t.mock.method(profileStore, 'recordInteraction', async () => COMPLETED_PROFILE);
   t.mock.method(axios, 'get', async (url) => {
     if (url.includes('media-id-123')) {
@@ -223,6 +226,7 @@ test('POST /webhook: mensagem de imagem baixa a mídia e responde explicando a t
 
 test('POST /webhook: mensagem de áudio transcreve, extrai lembrete e confirma', async (t) => {
   t.mock.method(profileStore, 'getProfile', async () => COMPLETED_PROFILE);
+  t.mock.method(profileStore, 'updateDailyMessageCount', async () => COMPLETED_PROFILE);
   t.mock.method(profileStore, 'recordInteraction', async () => COMPLETED_PROFILE);
   t.mock.method(axios, 'get', async (url) => {
     if (url.includes('media-id-456')) {

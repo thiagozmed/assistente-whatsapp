@@ -90,6 +90,17 @@ async function recordInteraction(phoneNumber, { type, summary }) {
   return data;
 }
 
+async function updateDailyMessageCount(phoneNumber, count, date) {
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({ daily_message_count: count, daily_message_count_date: date, updated_at: new Date().toISOString() })
+    .eq('phone_number', phoneNumber)
+    .select()
+    .single();
+  assertNoError(error, 'updateDailyMessageCount');
+  return data;
+}
+
 module.exports = {
   getProfile,
   createProfile,
@@ -99,4 +110,5 @@ module.exports = {
   updateTone,
   updatePreference,
   recordInteraction,
+  updateDailyMessageCount,
 };

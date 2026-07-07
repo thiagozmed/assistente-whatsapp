@@ -4,15 +4,14 @@ const reminderStore = require('./reminderStore');
 const agenda = require('./agenda');
 const transcription = require('./transcription');
 const consent = require('./consent');
+const rateLimit = require('./rateLimit');
+const generalAssistant = require('./generalAssistant');
 const { classifyIntent } = require('./router');
 const { checkForScam } = require('./scamShield');
 const { explain } = require('./bureaucracy');
 
-const FALLBACK_REPLY = `Oi! Eu posso te ajudar de várias formas:
-
-1) Me manda uma mensagem ou print suspeito que eu checo se é golpe.
-2) Me manda o texto ou foto de uma tela confusa (banco, INSS, Receita) que eu explico o que fazer, passo a passo.
-3) Me manda um áudio ou texto pra eu te lembrar de algo depois (remédio, consulta, compromisso).`;
+const RATE_LIMIT_MESSAGE =
+  'Você já trocou bastante mensagem comigo hoje! Pra eu continuar ajudando direitinho, vamos retomar amanhã, tá bom? Se for urgente, o melhor é ligar pra alguém de confiança agora.';
 
 const ASK_NAME_MESSAGE = 'Oi! Eu sou seu assistente por aqui. Como você gostaria de me chamar?';
 const ONBOARDING_RETRY_NAME =
@@ -74,6 +73,9 @@ async function handleIncomingText(phoneNumber, text, referenceTimestamp = new Da
     return welcomeMessage(updated);
   }
 
+  const { allowed } = await rateLimit.checkAndIncrement(phoneNumber, profile);
+  if (!allowed) return RATE_LIMIT_MESSAGE;
+
   const intent = await classifyIntent(text);
 
   if (intent === 'golpe') {
@@ -109,7 +111,9 @@ async function handleIncomingText(phoneNumber, text, referenceTimestamp = new Da
     return DATA_DELETED_MESSAGE;
   }
 
-  return FALLBACK_REPLY;
+  const reply = await generalAssistant.respond(text, profile);
+  await profileStore.recordInteraction(phoneNumber, { type: 'geral', summary: truncate(reply, 200) });
+  return reply;
 }
 
 async function handleIncomingImage(phoneNumber, media, caption) {
@@ -123,6 +127,9 @@ async function handleIncomingImage(phoneNumber, media, caption) {
   if (profile.onboarding_state !== 'completo') {
     return ONBOARDING_NEEDS_TEXT_MESSAGE;
   }
+
+  const { allowed } = await rateLimit.checkAndIncrement(phoneNumber, profile);
+  if (!allowed) return RATE_LIMIT_MESSAGE;
 
   const intent = caption ? await classifyIntent(caption) : 'burocracia';
 
