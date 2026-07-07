@@ -4,7 +4,16 @@ const crypto = require('node:crypto');
 const axios = require('axios');
 const { app } = require('../../src/server');
 const { client } = require('../../src/services/claudeClient');
+const profileStore = require('../../src/services/profileStore');
 const { waitFor } = require('../helpers/waitFor');
+
+const COMPLETED_PROFILE = {
+  phone_number: '554891466284',
+  assistant_name: 'Zeca',
+  tone: 'afetuoso',
+  onboarding_state: 'completo',
+  last_interaction_summary: null,
+};
 
 const APP_SECRET = process.env.WHATSAPP_APP_SECRET;
 
@@ -97,6 +106,7 @@ test('POST /webhook: assinatura inválida retorna 401 e não chama a IA', async 
 });
 
 test('POST /webhook: assinatura válida processa a mensagem e responde no WhatsApp', async (t) => {
+  t.mock.method(profileStore, 'getProfile', async () => COMPLETED_PROFILE);
   t.mock.method(client.messages, 'create', async () => ({
     content: [{ type: 'text', text: JSON.stringify({ intent: 'outro' }) }],
   }));
@@ -124,6 +134,7 @@ test('POST /webhook: assinatura válida processa a mensagem e responde no WhatsA
 });
 
 test('POST /webhook: falha da API Claude não derruba o servidor', async (t) => {
+  t.mock.method(profileStore, 'getProfile', async () => COMPLETED_PROFILE);
   t.mock.method(client.messages, 'create', async () => {
     throw new Error('simulated Anthropic outage');
   });

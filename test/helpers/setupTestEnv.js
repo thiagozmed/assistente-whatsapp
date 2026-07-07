@@ -8,3 +8,5 @@ process.env.WEBHOOK_VERIFY_TOKEN = 'test-verify-token';
 process.env.WHATSAPP_APP_SECRET = 'test-app-secret';
 process.env.WHATSAPP_ACCESS_TOKEN = 'test-access-token';
 process.env.WHATSAPP_PHONE_NUMBER_ID = 'test-phone-id';
+process.env.SUPABASE_URL = 'https://test-project.supabase.co';
+process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';

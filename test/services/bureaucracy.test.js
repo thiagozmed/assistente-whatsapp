@@ -12,6 +12,18 @@ test('explain: caminho feliz retorna o texto explicado pelo Sonnet', async (t) =
   assert.match(reply, /atualizar cadastro/i);
 });
 
+test('explain: personalização do perfil é injetada no system prompt', async (t) => {
+  let capturedSystem;
+  t.mock.method(client.messages, 'create', async (params) => {
+    capturedSystem = params.system;
+    return { content: [{ type: 'text', text: '1. Toque em "Atualizar cadastro".' }] };
+  });
+
+  await explain('O que eu faço nessa tela?', { assistant_name: 'Zeca', tone: 'formal' });
+  assert.match(capturedSystem, /Zeca/);
+  assert.match(capturedSystem, /respeitoso e formal/);
+});
+
 test('explain: falha de API propaga erro sem travar o processo', async (t) => {
   t.mock.method(client.messages, 'create', async () => {
     throw new Error('simulated Anthropic outage');

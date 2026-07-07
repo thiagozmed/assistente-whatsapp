@@ -42,7 +42,7 @@ router.post('/', verifySignature, (req, res) => {
   const from = message.from;
   const text = message.text.body;
 
-  handleIncomingText(text)
+  handleIncomingText(from, text)
     .then((reply) => sendTextMessage(from, reply))
     .catch((err) => {
       // Nunca logar o erro do axios inteiro — ele carrega os headers da

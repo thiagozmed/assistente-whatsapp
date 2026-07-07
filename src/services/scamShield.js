@@ -1,4 +1,5 @@
 const { client, MODELS, firstText, MOCK } = require('./claudeClient');
+const { buildPersonalizedSystemPrompt } = require('./personalization');
 
 const CLASSIFICATION_SCHEMA = {
   type: 'object',
@@ -56,7 +57,7 @@ async function classify(text) {
   return JSON.parse(firstText(response));
 }
 
-async function draftAlert(text, classification, motivo) {
+async function draftAlert(text, classification, motivo, profile) {
   if (classification === 'legitimo') {
     return 'Não encontrei sinais de golpe nessa mensagem. Mesmo assim, se algo parecer estranho, pode me mandar de novo que eu checo com prazer.';
   }
@@ -69,7 +70,7 @@ async function draftAlert(text, classification, motivo) {
     model: MODELS.SONNET,
     max_tokens: 1024,
     output_config: { effort: 'medium' },
-    system: ALERT_SYSTEM_PROMPT,
+    system: buildPersonalizedSystemPrompt(ALERT_SYSTEM_PROMPT, profile),
     messages: [
       {
         role: 'user',
@@ -81,9 +82,9 @@ async function draftAlert(text, classification, motivo) {
   return firstText(response);
 }
 
-async function checkForScam(text) {
+async function checkForScam(text, profile) {
   const { classification, motivo } = await classify(text);
-  const reply = await draftAlert(text, classification, motivo);
+  const reply = await draftAlert(text, classification, motivo, profile);
   return { classification, motivo, reply };
 }
 

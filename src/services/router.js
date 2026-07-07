@@ -3,15 +3,16 @@ const { client, MODELS, firstText, MOCK } = require('./claudeClient');
 const INTENT_SCHEMA = {
   type: 'object',
   properties: {
-    intent: { type: 'string', enum: ['golpe', 'burocracia', 'outro'] },
+    intent: { type: 'string', enum: ['golpe', 'burocracia', 'preferencia', 'outro'] },
   },
   required: ['intent'],
   additionalProperties: false,
 };
 
-const SYSTEM_PROMPT = `Você classifica mensagens recebidas de um idoso no WhatsApp em uma de três categorias:
+const SYSTEM_PROMPT = `Você classifica mensagens recebidas de um idoso no WhatsApp em uma de quatro categorias:
 - "golpe": o usuário encaminhou uma mensagem, print ou texto suspeito e quer saber se é golpe.
 - "burocracia": o usuário colou um texto confuso de banco, INSS, Receita Federal ou plano de saúde e quer entender o que fazer.
+- "preferencia": o usuário quer mudar como o assistente o trata — o nome que usa pra chamar o assistente, ou o tom de conversa (mais formal ou mais próximo/afetuoso).
 - "outro": qualquer outra coisa (saudação, pergunta fora de escopo, etc).`;
 
 function mockClassifyIntent(text) {
@@ -21,6 +22,9 @@ function mockClassifyIntent(text) {
   }
   if (/(inss|banco|receita federal|plano de sa[uú]de|cadastro|declara[cç][aã]o|aplicativo)/.test(lower)) {
     return 'burocracia';
+  }
+  if (/(quero te chamar|me chamar de outro nome|fala comigo de um jeito|mudar (o|meu) tom)/.test(lower)) {
+    return 'preferencia';
   }
   return 'outro';
 }
