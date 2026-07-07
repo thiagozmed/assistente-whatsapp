@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { client, MODELS } = require('../../src/services/claudeClient');
-const { respond, CODE_BLOCKED_MESSAGE, IMAGE_BLOCKED_MESSAGE } = require('../../src/services/generalAssistant');
+const { respond, CODE_BLOCKED_MESSAGE, IMAGE_BLOCKED_MESSAGE, looksLikeCode } = require('../../src/services/generalAssistant');
 
 function textResponse(payloadOrText) {
   const text = typeof payloadOrText === 'string' ? payloadOrText : JSON.stringify(payloadOrText);
@@ -77,6 +77,26 @@ test('respond: personalização do perfil é injetada no system prompt da respos
   await respond('oi', { assistant_name: 'Zeca', tone: 'afetuoso' });
   assert.match(capturedSystem, /Zeca/);
   assert.match(capturedSystem, /caloroso e afetuoso/);
+});
+
+test('looksLikeCode: reconhece blocos de código markdown e padrões comuns', () => {
+  assert.equal(looksLikeCode('```python\nprint("oi")\n```'), true);
+  assert.equal(looksLikeCode('function soma(a, b) { return a + b; }'), true);
+  assert.equal(looksLikeCode('const x = 10;'), true);
+  assert.equal(looksLikeCode('Bom dia! Como você está?'), false);
+  assert.equal(looksLikeCode('Prazer, pode me chamar de Zeca.'), false);
+});
+
+test('respond: barreira determinística bloqueia código mesmo se a triagem deixar passar', async (t) => {
+  let call = 0;
+  t.mock.method(client.messages, 'create', async () => {
+    call += 1;
+    if (call === 1) return textResponse({ blocked_reason: 'nenhum', complexity: 'simples' }); // triagem furada
+    return textResponse('Claro! Aqui vai:\n```javascript\nfunction soma(a, b) { return a + b; }\n```');
+  });
+
+  const reply = await respond('me ajuda com uma coisa', {});
+  assert.equal(reply, CODE_BLOCKED_MESSAGE);
 });
 
 test('respond: falha de API propaga erro sem travar o processo', async (t) => {

@@ -13,6 +13,13 @@ const { explain } = require('./bureaucracy');
 const RATE_LIMIT_MESSAGE =
   'Você já trocou bastante mensagem comigo hoje! Pra eu continuar ajudando direitinho, vamos retomar amanhã, tá bom? Se for urgente, o melhor é ligar pra alguém de confiança agora.';
 
+// Protege contra "paste bombs" (custo de token e possível abuso) antes de
+// tocar em qualquer serviço — o WhatsApp já limita mensagens de texto a
+// poucos milhares de caracteres, isso é só uma segunda trava nossa.
+const MAX_TEXT_LENGTH = 4000;
+const MESSAGE_TOO_LONG_MESSAGE =
+  'Essa mensagem ficou grande demais pra eu processar de uma vez — pode tentar resumir ou mandar em partes menores?';
+
 const ASK_NAME_MESSAGE = 'Oi! Eu sou seu assistente por aqui. Como você gostaria de me chamar?';
 const ONBOARDING_RETRY_NAME =
   'Desculpa, não peguei o nome — pode me dizer de novo? Por exemplo: "pode me chamar de Zeca".';
@@ -26,6 +33,15 @@ const CONSENT_RETRY_MESSAGE = 'Desculpa, não entendi — posso continuar? Pode 
 const CONSENT_DECLINED_MESSAGE =
   'Sem problemas — mas, pra eu conseguir te ajudar de verdade, preciso guardar pelo menos essas informações básicas. Se mudar de ideia, é só me chamar de novo quando quiser.';
 const DATA_DELETED_MESSAGE = 'Pronto, apaguei todos os seus dados que eu tinha guardado — nome, preferências e lembretes.';
+
+// Confirmação explícita antes de apagar (CLAUDE.md 6.3 / risco de SIM swap ou
+// celular roubado): sem isso, uma única mensagem de quem estiver de posse do
+// número do idoso apagava tudo na hora, sem chance de desfazer.
+const CONFIRM_FORGET_MESSAGE =
+  'Tem certeza que quer que eu apague tudo que guardei sobre você — nome, preferências e lembretes? Isso não pode ser desfeito. Responda "sim" pra confirmar, ou "não" pra deixar como está.';
+const FORGET_CANCELLED_MESSAGE = 'Tudo bem, não vou apagar nada. Seus dados continuam guardados normalmente.';
+const CONFIRM_FORGET_RETRY_MESSAGE =
+  'Desculpa, não entendi — quer mesmo que eu apague seus dados guardados? Responda só "sim" ou "não".';
 
 function askToneMessage(assistantName) {
   return `Prazer! Pode me chamar de ${assistantName}. Você prefere que eu fale com você de um jeito mais formal, ou mais próximo e afetuoso?`;
@@ -42,11 +58,26 @@ function truncate(text, max) {
 }
 
 async function handleIncomingText(phoneNumber, text, referenceTimestamp = new Date()) {
+  if (text && text.length > MAX_TEXT_LENGTH) return MESSAGE_TOO_LONG_MESSAGE;
+
   let profile = await profileStore.getProfile(phoneNumber);
 
   if (!profile) {
     await profileStore.createProfile(phoneNumber);
     return consent.CONSENT_MESSAGE;
+  }
+
+  if (profile.pending_action === 'confirmar_esquecer') {
+    const resposta = await consent.interpretConsent(text);
+    if (resposta === 'sim') {
+      await profileStore.deleteProfile(phoneNumber);
+      return DATA_DELETED_MESSAGE;
+    }
+    if (resposta === 'nao') {
+      await profileStore.updatePendingAction(phoneNumber, null);
+      return FORGET_CANCELLED_MESSAGE;
+    }
+    return CONFIRM_FORGET_RETRY_MESSAGE;
   }
 
   if (profile.onboarding_state === 'aguardando_consentimento') {
@@ -73,7 +104,7 @@ async function handleIncomingText(phoneNumber, text, referenceTimestamp = new Da
     return welcomeMessage(updated);
   }
 
-  const { allowed } = await rateLimit.checkAndIncrement(phoneNumber, profile);
+  const { allowed } = await rateLimit.checkAndIncrement(phoneNumber);
   if (!allowed) return RATE_LIMIT_MESSAGE;
 
   const intent = await classifyIntent(text);
@@ -107,8 +138,8 @@ async function handleIncomingText(phoneNumber, text, referenceTimestamp = new Da
   }
 
   if (intent === 'esquecer') {
-    await profileStore.deleteProfile(phoneNumber);
-    return DATA_DELETED_MESSAGE;
+    await profileStore.updatePendingAction(phoneNumber, 'confirmar_esquecer');
+    return CONFIRM_FORGET_MESSAGE;
   }
 
   const reply = await generalAssistant.respond(text, profile);
@@ -117,6 +148,8 @@ async function handleIncomingText(phoneNumber, text, referenceTimestamp = new Da
 }
 
 async function handleIncomingImage(phoneNumber, media, caption) {
+  if (caption && caption.length > MAX_TEXT_LENGTH) return MESSAGE_TOO_LONG_MESSAGE;
+
   const profile = await profileStore.getProfile(phoneNumber);
 
   if (!profile) {
@@ -128,7 +161,7 @@ async function handleIncomingImage(phoneNumber, media, caption) {
     return ONBOARDING_NEEDS_TEXT_MESSAGE;
   }
 
-  const { allowed } = await rateLimit.checkAndIncrement(phoneNumber, profile);
+  const { allowed } = await rateLimit.checkAndIncrement(phoneNumber);
   if (!allowed) return RATE_LIMIT_MESSAGE;
 
   const intent = caption ? await classifyIntent(caption) : 'burocracia';

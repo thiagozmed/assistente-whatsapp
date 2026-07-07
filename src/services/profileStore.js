@@ -90,14 +90,26 @@ async function recordInteraction(phoneNumber, { type, summary }) {
   return data;
 }
 
-async function updateDailyMessageCount(phoneNumber, count, date) {
+// RPC (sql/004_atomic_rate_limit.sql) em vez de ler-e-escrever daqui: o UPDATE
+// roda inteiro numa única instrução no Postgres, então o lock de linha
+// serializa chamadas concorrentes pro mesmo número (evita passar do limite
+// diário quando duas mensagens chegam quase juntas).
+async function incrementDailyMessageCount(phoneNumber, date) {
+  const { data, error } = await supabase
+    .rpc('increment_daily_message_count', { p_phone_number: phoneNumber, p_today: date })
+    .single();
+  assertNoError(error, 'incrementDailyMessageCount');
+  return data;
+}
+
+async function updatePendingAction(phoneNumber, pendingAction) {
   const { data, error } = await supabase
     .from('profiles')
-    .update({ daily_message_count: count, daily_message_count_date: date, updated_at: new Date().toISOString() })
+    .update({ pending_action: pendingAction, updated_at: new Date().toISOString() })
     .eq('phone_number', phoneNumber)
     .select()
     .single();
-  assertNoError(error, 'updateDailyMessageCount');
+  assertNoError(error, 'updatePendingAction');
   return data;
 }
 
@@ -110,5 +122,6 @@ module.exports = {
   updateTone,
   updatePreference,
   recordInteraction,
-  updateDailyMessageCount,
+  incrementDailyMessageCount,
+  updatePendingAction,
 };

@@ -2,8 +2,11 @@ const express = require('express');
 const { handleIncomingText, handleIncomingImage, handleIncomingAudio } = require('../services/messageHandler');
 const { sendTextMessage, downloadMedia } = require('../services/whatsapp');
 const { isValidSignature } = require('../services/webhookSignature');
+const { webhookRateLimit } = require('../services/webhookRateLimit');
+const dedupe = require('../services/dedupe');
 
 const router = express.Router();
+router.use(webhookRateLimit);
 
 // Rejeita qualquer POST sem assinatura válida da Meta, antes de processar
 // a mensagem. Fail-closed: sem secret configurado, sem header, ou header
@@ -51,28 +54,41 @@ router.post('/', verifySignature, (req, res) => {
     console.error('Erro processando mensagem do webhook:', err.response?.data ?? err.message);
   };
 
-  if (message.type === 'text') {
-    handleIncomingText(from, message.text.body, referenceTimestamp)
-      .then((reply) => sendTextMessage(from, reply))
-      .catch(onError);
-    return;
+  function processMessage() {
+    if (message.type === 'text') {
+      return handleIncomingText(from, message.text.body, referenceTimestamp).then((reply) => sendTextMessage(from, reply));
+    }
+
+    if (message.type === 'image') {
+      return downloadMedia(message.image.id)
+        .then((media) => handleIncomingImage(from, media, message.image.caption))
+        .then((reply) => sendTextMessage(from, reply));
+    }
+
+    if (message.type === 'audio') {
+      return downloadMedia(message.audio.id)
+        .then((media) => handleIncomingAudio(from, media, referenceTimestamp))
+        .then((reply) => sendTextMessage(from, reply));
+    }
+
+    return Promise.resolve();
   }
 
-  if (message.type === 'image') {
-    downloadMedia(message.image.id)
-      .then((media) => handleIncomingImage(from, media, message.image.caption))
-      .then((reply) => sendTextMessage(from, reply))
-      .catch(onError);
-    return;
-  }
-
-  if (message.type === 'audio') {
-    downloadMedia(message.audio.id)
-      .then((media) => handleIncomingAudio(from, media, referenceTimestamp))
-      .then((reply) => sendTextMessage(from, reply))
-      .catch(onError);
-    return;
-  }
+  // A Meta pode reentregar o mesmo evento (rede instável, etc.); sem esse
+  // dedup a mensagem seria reprocessada do zero (duplo consumo de rate limit,
+  // resposta ou lembrete duplicado). Falha ao checar duplicidade não deve
+  // impedir a resposta — melhor arriscar reprocessar do que ficar em silêncio.
+  dedupe
+    .claimMessage(message.id)
+    .catch((err) => {
+      console.error('Erro verificando duplicidade da mensagem:', err.message);
+      return true;
+    })
+    .then((claimed) => {
+      if (!claimed) return undefined;
+      return processMessage();
+    })
+    .catch(onError);
 });
 
 module.exports = router;

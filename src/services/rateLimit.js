@@ -7,13 +7,8 @@ function today() {
   return new Date().toISOString().slice(0, 10);
 }
 
-async function checkAndIncrement(phoneNumber, profile) {
-  const date = today();
-  const isNewDay = profile.daily_message_count_date !== date;
-  const count = isNewDay ? 1 : (profile.daily_message_count || 0) + 1;
-
-  await profileStore.updateDailyMessageCount(phoneNumber, count, date);
-
+async function checkAndIncrement(phoneNumber) {
+  const { daily_message_count: count } = await profileStore.incrementDailyMessageCount(phoneNumber, today());
   return { allowed: count <= DAILY_MESSAGE_LIMIT, count };
 }
 

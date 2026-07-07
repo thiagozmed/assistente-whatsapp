@@ -5,7 +5,12 @@ const axios = require('axios');
 const { app } = require('../../src/server');
 const { client } = require('../../src/services/claudeClient');
 const profileStore = require('../../src/services/profileStore');
+const dedupe = require('../../src/services/dedupe');
 const { waitFor } = require('../helpers/waitFor');
+
+function mockDedupeClaims(t) {
+  return t.mock.method(dedupe, 'claimMessage', async () => true);
+}
 
 const COMPLETED_PROFILE = {
   phone_number: '554891466284',
@@ -21,7 +26,7 @@ function sign(rawBody, secret) {
   return 'sha256=' + crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
 }
 
-function samplePayload(text) {
+function samplePayload(text, id = 'wamid.texto') {
   return {
     entry: [
       {
@@ -29,7 +34,7 @@ function samplePayload(text) {
           {
             value: {
               messages: [
-                { from: '554891466284', type: 'text', text: { body: text } },
+                { id, from: '554891466284', type: 'text', text: { body: text } },
               ],
             },
           },
@@ -39,7 +44,7 @@ function samplePayload(text) {
   };
 }
 
-function imagePayload(caption) {
+function imagePayload(caption, id = 'wamid.imagem') {
   return {
     entry: [
       {
@@ -47,7 +52,7 @@ function imagePayload(caption) {
           {
             value: {
               messages: [
-                { from: '554891466284', type: 'image', image: { id: 'media-id-123', caption } },
+                { id, from: '554891466284', type: 'image', image: { id: 'media-id-123', caption } },
               ],
             },
           },
@@ -57,7 +62,7 @@ function imagePayload(caption) {
   };
 }
 
-function audioPayload() {
+function audioPayload(id = 'wamid.audio') {
   return {
     entry: [
       {
@@ -65,7 +70,7 @@ function audioPayload() {
           {
             value: {
               messages: [
-                { from: '554891466284', type: 'audio', audio: { id: 'media-id-456' }, timestamp: '1783593600' },
+                { id, from: '554891466284', type: 'audio', audio: { id: 'media-id-456' }, timestamp: '1783593600' },
               ],
             },
           },
@@ -142,8 +147,9 @@ test('POST /webhook: assinatura inválida retorna 401 e não chama a IA', async 
 });
 
 test('POST /webhook: assinatura válida processa a mensagem e responde no WhatsApp', async (t) => {
+  mockDedupeClaims(t);
   t.mock.method(profileStore, 'getProfile', async () => COMPLETED_PROFILE);
-  t.mock.method(profileStore, 'updateDailyMessageCount', async () => COMPLETED_PROFILE);
+  t.mock.method(profileStore, 'incrementDailyMessageCount', async () => ({ daily_message_count: 1 }));
   t.mock.method(profileStore, 'recordInteraction', async () => COMPLETED_PROFILE);
   t.mock.method(client.messages, 'create', async () => ({
     content: [{ type: 'text', text: JSON.stringify({ intent: 'outro' }) }],
@@ -171,8 +177,32 @@ test('POST /webhook: assinatura válida processa a mensagem e responde no WhatsA
   await waitFor(() => whatsappCalled);
 });
 
+test('POST /webhook: wamid já processado (reentrega da Meta) não reprocessa a mensagem', async (t) => {
+  t.mock.method(dedupe, 'claimMessage', async () => false);
+  const getProfileMock = t.mock.method(profileStore, 'getProfile', async () => COMPLETED_PROFILE);
+  const createModelMock = t.mock.method(client.messages, 'create', async () => {
+    throw new Error('não deveria processar uma mensagem já reivindicada');
+  });
+
+  await withServer(async (base) => {
+    const body = Buffer.from(JSON.stringify(samplePayload('oi', 'wamid.duplicado')));
+    const res = await fetch(`${base}/webhook`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-hub-signature-256': sign(body, APP_SECRET) },
+      body,
+    });
+    assert.equal(res.status, 200);
+  });
+
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.equal(getProfileMock.mock.callCount(), 0);
+  assert.equal(createModelMock.mock.callCount(), 0);
+});
+
 test('POST /webhook: falha da API Claude não derruba o servidor', async (t) => {
+  mockDedupeClaims(t);
   t.mock.method(profileStore, 'getProfile', async () => COMPLETED_PROFILE);
+  t.mock.method(profileStore, 'incrementDailyMessageCount', async () => ({ daily_message_count: 1 }));
   t.mock.method(client.messages, 'create', async () => {
     throw new Error('simulated Anthropic outage');
   });
@@ -193,8 +223,9 @@ test('POST /webhook: falha da API Claude não derruba o servidor', async (t) => 
 });
 
 test('POST /webhook: mensagem de imagem baixa a mídia e responde explicando a tela', async (t) => {
+  mockDedupeClaims(t);
   t.mock.method(profileStore, 'getProfile', async () => COMPLETED_PROFILE);
-  t.mock.method(profileStore, 'updateDailyMessageCount', async () => COMPLETED_PROFILE);
+  t.mock.method(profileStore, 'incrementDailyMessageCount', async () => ({ daily_message_count: 1 }));
   t.mock.method(profileStore, 'recordInteraction', async () => COMPLETED_PROFILE);
   t.mock.method(axios, 'get', async (url) => {
     if (url.includes('media-id-123')) {
@@ -225,8 +256,9 @@ test('POST /webhook: mensagem de imagem baixa a mídia e responde explicando a t
 });
 
 test('POST /webhook: mensagem de áudio transcreve, extrai lembrete e confirma', async (t) => {
+  mockDedupeClaims(t);
   t.mock.method(profileStore, 'getProfile', async () => COMPLETED_PROFILE);
-  t.mock.method(profileStore, 'updateDailyMessageCount', async () => COMPLETED_PROFILE);
+  t.mock.method(profileStore, 'incrementDailyMessageCount', async () => ({ daily_message_count: 1 }));
   t.mock.method(profileStore, 'recordInteraction', async () => COMPLETED_PROFILE);
   t.mock.method(axios, 'get', async (url) => {
     if (url.includes('media-id-456')) {
@@ -270,6 +302,7 @@ test('POST /webhook: mensagem de áudio transcreve, extrai lembrete e confirma',
 });
 
 test('POST /webhook: falha de transcrição de áudio responde amigável sem derrubar o servidor', async (t) => {
+  mockDedupeClaims(t);
   t.mock.method(profileStore, 'getProfile', async () => COMPLETED_PROFILE);
   t.mock.method(axios, 'get', async (url) => {
     if (url.includes('media-id-456')) {

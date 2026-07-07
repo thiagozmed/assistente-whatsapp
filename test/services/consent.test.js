@@ -12,6 +12,11 @@ test('CONSENT_MESSAGE explica que é uma IA e o que guarda', () => {
   assert.match(CONSENT_MESSAGE, /esquece meus dados/i);
 });
 
+test('CONSENT_MESSAGE avisa sobre processamento por provedores de IA terceiros (LGPD)', () => {
+  assert.match(CONSENT_MESSAGE, /anthropic/i);
+  assert.match(CONSENT_MESSAGE, /openai/i);
+});
+
 test('interpretConsent: reconhece "sim"', async (t) => {
   t.mock.method(client.messages, 'create', async () => textResponse({ resposta: 'sim' }));
   assert.equal(await interpretConsent('sim, pode'), 'sim');

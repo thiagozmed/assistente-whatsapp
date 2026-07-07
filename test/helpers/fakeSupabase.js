@@ -8,6 +8,7 @@ function fakeQuery(result) {
     delete: () => builder,
     eq: () => builder,
     lte: () => builder,
+    lt: () => builder,
     maybeSingle: () => Promise.resolve(result),
     single: () => Promise.resolve(result),
     then: (resolve, reject) => Promise.resolve(result).then(resolve, reject),

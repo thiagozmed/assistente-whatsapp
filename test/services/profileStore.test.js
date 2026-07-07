@@ -106,17 +106,43 @@ test('recordInteraction: grava tipo e resumo da última interação', async (t) 
   assert.equal(profile.last_interaction_type, 'golpe');
 });
 
-test('updateDailyMessageCount: grava a contagem e a data do dia', async (t) => {
-  t.mock.method(supabase, 'from', () =>
-    fakeQuery({ data: { phone_number: '123', daily_message_count: 3, daily_message_count_date: '2026-07-07' }, error: null }),
+test('incrementDailyMessageCount: chama a função atômica do Postgres e devolve a nova contagem', async (t) => {
+  const rpcMock = t.mock.method(supabase, 'rpc', () =>
+    fakeQuery({ data: { daily_message_count: 3, daily_message_count_date: '2026-07-07' }, error: null }),
   );
 
-  const profile = await profileStore.updateDailyMessageCount('123', 3, '2026-07-07');
-  assert.equal(profile.daily_message_count, 3);
+  const result = await profileStore.incrementDailyMessageCount('123', '2026-07-07');
+  assert.equal(result.daily_message_count, 3);
+  assert.deepEqual(rpcMock.mock.calls[0].arguments, [
+    'increment_daily_message_count',
+    { p_phone_number: '123', p_today: '2026-07-07' },
+  ]);
 });
 
-test('updateDailyMessageCount: erro do Supabase propaga como exceção', async (t) => {
+test('incrementDailyMessageCount: erro do Supabase propaga como exceção', async (t) => {
+  t.mock.method(supabase, 'rpc', () => fakeQuery({ data: null, error: { message: 'conexão recusada' } }));
+
+  await assert.rejects(() => profileStore.incrementDailyMessageCount('123', '2026-07-07'), /conexão recusada/);
+});
+
+test('updatePendingAction: grava a ação pendente de confirmação', async (t) => {
+  t.mock.method(supabase, 'from', () =>
+    fakeQuery({ data: { phone_number: '123', pending_action: 'confirmar_esquecer' }, error: null }),
+  );
+
+  const profile = await profileStore.updatePendingAction('123', 'confirmar_esquecer');
+  assert.equal(profile.pending_action, 'confirmar_esquecer');
+});
+
+test('updatePendingAction: limpa a ação pendente passando null', async (t) => {
+  t.mock.method(supabase, 'from', () => fakeQuery({ data: { phone_number: '123', pending_action: null }, error: null }));
+
+  const profile = await profileStore.updatePendingAction('123', null);
+  assert.equal(profile.pending_action, null);
+});
+
+test('updatePendingAction: erro do Supabase propaga como exceção', async (t) => {
   t.mock.method(supabase, 'from', () => fakeQuery({ data: null, error: { message: 'conexão recusada' } }));
 
-  await assert.rejects(() => profileStore.updateDailyMessageCount('123', 1, '2026-07-07'), /conexão recusada/);
+  await assert.rejects(() => profileStore.updatePendingAction('123', 'confirmar_esquecer'), /conexão recusada/);
 });

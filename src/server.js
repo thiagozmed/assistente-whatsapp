@@ -5,6 +5,9 @@ const testHarnessRouter = require('./routes/testHarness');
 const { startReminderScheduler } = require('./services/reminderDispatcher');
 
 const app = express();
+// Railway roda atrás de um proxy reverso — sem isso, req.ip (usado pelo rate
+// limit do webhook) veria sempre o IP do proxy, e não do cliente real.
+app.set('trust proxy', 1);
 app.use(express.json({
   verify: (req, res, buf) => {
     req.rawBody = buf;

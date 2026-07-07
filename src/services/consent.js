@@ -4,7 +4,7 @@ const CONSENT_MESSAGE = `Oi! Antes de começarmos, uma explicação rápida:
 
 Eu sou um assistente de inteligência artificial (não uma pessoa) — vou te ajudar por aqui a checar se mensagens são golpe, explicar telas confusas, e lembrar você de compromissos.
 
-Pra isso, eu guardo algumas informações suas: o nome que você escolher pra mim, como prefere que eu fale com você, e um resumo curto da última vez que te ajudei (não guardo a conversa inteira). Você pode pedir pra eu apagar tudo isso a qualquer momento, é só me falar "esquece meus dados".
+Pra isso, eu guardo algumas informações suas: o nome que você escolher pra mim, como prefere que eu fale com você, e um resumo curto da última vez que te ajudei (não guardo a conversa inteira). Prints e áudios que você me manda são processados por empresas parceiras especializadas em IA (Anthropic e OpenAI) só na hora de gerar a resposta, sem ficarem guardados por aqui depois. Você pode pedir pra eu apagar tudo isso a qualquer momento, é só me falar "esquece meus dados".
 
 Posso continuar?`;
 
