@@ -319,15 +319,35 @@ test('handleIncomingImage: onboarding incompleto pede pra terminar em texto', as
   assert.match(reply, /terminar de te conhecer/i);
 });
 
-test('handleIncomingImage: sem legenda, trata como burocracia', async (t) => {
+test('handleIncomingImage: sem legenda, mas imagem é uma tela confusa -> roteia pra burocracia', async (t) => {
   mockRateLimitAllowed(t);
   t.mock.method(profileStore, 'getProfile', async () => COMPLETED_PROFILE);
   const recordMock = t.mock.method(profileStore, 'recordInteraction', async () => COMPLETED_PROFILE);
-  t.mock.method(client.messages, 'create', async () => textResponse('1. Toque em ATUALIZAR CADASTRO.'));
+
+  let call = 0;
+  t.mock.method(client.messages, 'create', async () => {
+    call += 1;
+    if (call === 1) return textResponse({ intent: 'burocracia' }); // router pelo conteúdo da imagem
+    return textResponse('1. Toque em ATUALIZAR CADASTRO.');
+  });
 
   const reply = await handleIncomingImage('5511999999999', FAKE_IMAGE, undefined);
   assert.match(reply, /atualizar cadastro/i);
   assert.equal(recordMock.mock.calls[0].arguments[1].type, 'burocracia');
+});
+
+test('handleIncomingImage: sem legenda e sem relação com golpe/burocracia -> vai pro assistente geral', async (t) => {
+  mockRateLimitAllowed(t);
+  t.mock.method(profileStore, 'getProfile', async () => COMPLETED_PROFILE);
+  const recordMock = t.mock.method(profileStore, 'recordInteraction', async () => COMPLETED_PROFILE);
+  const respondMock = t.mock.method(generalAssistant, 'respond', async () => 'Isso parece um aparelho de leg press!');
+  t.mock.method(client.messages, 'create', async () => textResponse({ intent: 'outro' }));
+
+  const reply = await handleIncomingImage('5511999999999', FAKE_IMAGE, undefined);
+  assert.equal(reply, 'Isso parece um aparelho de leg press!');
+  assert.equal(respondMock.mock.callCount(), 1);
+  assert.equal(respondMock.mock.calls[0].arguments[2], FAKE_IMAGE);
+  assert.equal(recordMock.mock.calls[0].arguments[1].type, 'geral');
 });
 
 test('handleIncomingImage: legenda de golpe roteia pro escudo contra golpe', async (t) => {

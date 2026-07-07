@@ -99,6 +99,26 @@ test('respond: barreira determinística bloqueia código mesmo se a triagem deix
   assert.equal(reply, CODE_BLOCKED_MESSAGE);
 });
 
+test('respond: com imagem, usa Sonnet e envia o content block de visão, mesmo com triagem "simples"', async (t) => {
+  let call = 0;
+  let capturedModel;
+  let capturedContent;
+  t.mock.method(client.messages, 'create', async (params) => {
+    call += 1;
+    if (call === 1) return textResponse({ blocked_reason: 'nenhum', complexity: 'simples' });
+    capturedModel = params.model;
+    capturedContent = params.messages[0].content;
+    return textResponse('Isso parece um aparelho de leg press! Ajusta o peso na pilha lateral...');
+  });
+
+  const image = { mimeType: 'image/jpeg', buffer: Buffer.from('fake-gym-equipment-photo') };
+  const reply = await respond('', {}, image);
+  assert.match(reply, /leg press/i);
+  assert.equal(capturedModel, MODELS.SONNET);
+  assert.equal(capturedContent.length, 1);
+  assert.equal(capturedContent[0].type, 'image');
+});
+
 test('respond: falha de API propaga erro sem travar o processo', async (t) => {
   t.mock.method(client.messages, 'create', async () => {
     throw new Error('simulated Anthropic outage');

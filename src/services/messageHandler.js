@@ -164,7 +164,7 @@ async function handleIncomingImage(phoneNumber, media, caption) {
   const { allowed } = await rateLimit.checkAndIncrement(phoneNumber);
   if (!allowed) return RATE_LIMIT_MESSAGE;
 
-  const intent = caption ? await classifyIntent(caption) : 'burocracia';
+  const intent = await classifyIntent(caption || '', media);
 
   if (intent === 'golpe') {
     const { classification, motivo, reply } = await checkForScam(caption || '', profile, media);
@@ -172,8 +172,14 @@ async function handleIncomingImage(phoneNumber, media, caption) {
     return reply;
   }
 
-  const reply = await explain(caption || '', profile, media);
-  await profileStore.recordInteraction(phoneNumber, { type: 'burocracia', summary: truncate(reply, 200) });
+  if (intent === 'burocracia') {
+    const reply = await explain(caption || '', profile, media);
+    await profileStore.recordInteraction(phoneNumber, { type: 'burocracia', summary: truncate(reply, 200) });
+    return reply;
+  }
+
+  const reply = await generalAssistant.respond(caption || '', profile, media);
+  await profileStore.recordInteraction(phoneNumber, { type: 'geral', summary: truncate(reply, 200) });
   return reply;
 }
 

@@ -233,9 +233,12 @@ test('POST /webhook: mensagem de imagem baixa a mídia e responde explicando a t
     }
     return { data: Buffer.from('fake-image-bytes') };
   });
-  t.mock.method(client.messages, 'create', async () => ({
-    content: [{ type: 'text', text: '1. Toque em ATUALIZAR CADASTRO.' }],
-  }));
+  let modelCall = 0;
+  t.mock.method(client.messages, 'create', async () => {
+    modelCall += 1;
+    if (modelCall === 1) return { content: [{ type: 'text', text: JSON.stringify({ intent: 'burocracia' }) }] };
+    return { content: [{ type: 'text', text: '1. Toque em ATUALIZAR CADASTRO.' }] };
+  });
   let whatsappCalled = false;
   t.mock.method(axios, 'post', async () => {
     whatsappCalled = true;
