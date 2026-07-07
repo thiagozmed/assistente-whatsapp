@@ -1,0 +1,19 @@
+{
+  "name": "assistente-idosos-whatsapp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Assistente de IA para idosos via WhatsApp — MVP Fase 1 (escudo contra golpe + tradutor de burocracia)",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --require ./test/helpers/setupTestEnv.js --test",
+    "test:watch": "node --require ./test/helpers/setupTestEnv.js --test --watch"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.110.0",
+    "axios": "^1.18.1",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1"
+  }
+}
