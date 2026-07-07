@@ -3,6 +3,7 @@ const preferences = require('./preferences');
 const reminderStore = require('./reminderStore');
 const agenda = require('./agenda');
 const transcription = require('./transcription');
+const consent = require('./consent');
 const { classifyIntent } = require('./router');
 const { checkForScam } = require('./scamShield');
 const { explain } = require('./bureaucracy');
@@ -22,6 +23,10 @@ const ONBOARDING_NEEDS_TEXT_MESSAGE =
   'Antes de eu conseguir olhar essa imagem, preciso terminar de te conhecer — pode responder em texto por enquanto?';
 const TRANSCRIPTION_FAILURE_MESSAGE =
   'Desculpa, não consegui entender esse áudio agora. Pode tentar gravar de novo, ou me mandar por texto?';
+const CONSENT_RETRY_MESSAGE = 'Desculpa, não entendi — posso continuar? Pode responder só "sim" ou "não".';
+const CONSENT_DECLINED_MESSAGE =
+  'Sem problemas — mas, pra eu conseguir te ajudar de verdade, preciso guardar pelo menos essas informações básicas. Se mudar de ideia, é só me chamar de novo quando quiser.';
+const DATA_DELETED_MESSAGE = 'Pronto, apaguei todos os seus dados que eu tinha guardado — nome, preferências e lembretes.';
 
 function askToneMessage(assistantName) {
   return `Prazer! Pode me chamar de ${assistantName}. Você prefere que eu fale com você de um jeito mais formal, ou mais próximo e afetuoso?`;
@@ -42,7 +47,17 @@ async function handleIncomingText(phoneNumber, text, referenceTimestamp = new Da
 
   if (!profile) {
     await profileStore.createProfile(phoneNumber);
-    return ASK_NAME_MESSAGE;
+    return consent.CONSENT_MESSAGE;
+  }
+
+  if (profile.onboarding_state === 'aguardando_consentimento') {
+    const resposta = await consent.interpretConsent(text);
+    if (resposta === 'sim') {
+      await profileStore.recordConsent(phoneNumber);
+      return ASK_NAME_MESSAGE;
+    }
+    if (resposta === 'nao') return CONSENT_DECLINED_MESSAGE;
+    return CONSENT_RETRY_MESSAGE;
   }
 
   if (profile.onboarding_state === 'aguardando_nome') {
@@ -89,6 +104,11 @@ async function handleIncomingText(phoneNumber, text, referenceTimestamp = new Da
     return agenda.buildConfirmationMessage({ descricao, scheduledAt });
   }
 
+  if (intent === 'esquecer') {
+    await profileStore.deleteProfile(phoneNumber);
+    return DATA_DELETED_MESSAGE;
+  }
+
   return FALLBACK_REPLY;
 }
 
@@ -97,7 +117,7 @@ async function handleIncomingImage(phoneNumber, media, caption) {
 
   if (!profile) {
     await profileStore.createProfile(phoneNumber);
-    return ASK_NAME_MESSAGE;
+    return consent.CONSENT_MESSAGE;
   }
 
   if (profile.onboarding_state !== 'completo') {

@@ -46,6 +46,27 @@ test('createProfile: colisão de PK (webhook duplicado) cai de volta pra getProf
   assert.equal(call, 2);
 });
 
+test('recordConsent: registra consentimento e avança pro passo de nome', async (t) => {
+  t.mock.method(supabase, 'from', () =>
+    fakeQuery({ data: { phone_number: '123', onboarding_state: 'aguardando_nome' }, error: null }),
+  );
+
+  const profile = await profileStore.recordConsent('123');
+  assert.equal(profile.onboarding_state, 'aguardando_nome');
+});
+
+test('deleteProfile: apaga sem erro', async (t) => {
+  t.mock.method(supabase, 'from', () => fakeQuery({ error: null }));
+
+  await assert.doesNotReject(() => profileStore.deleteProfile('123'));
+});
+
+test('deleteProfile: erro do Supabase propaga como exceção', async (t) => {
+  t.mock.method(supabase, 'from', () => fakeQuery({ error: { message: 'conexão recusada' } }));
+
+  await assert.rejects(() => profileStore.deleteProfile('123'), /conexão recusada/);
+});
+
 test('updateName: atualiza nome e avança onboarding_state', async (t) => {
   t.mock.method(supabase, 'from', () =>
     fakeQuery({ data: { phone_number: '123', assistant_name: 'Zeca', onboarding_state: 'aguardando_tom' }, error: null }),

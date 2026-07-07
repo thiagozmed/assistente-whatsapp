@@ -22,7 +22,7 @@ Preencha o `.env`:
 ### Criar o banco (Supabase)
 
 1. Crie um projeto em [supabase.com](https://supabase.com).
-2. No SQL Editor do projeto, rode o conteúdo de `sql/profiles.sql` e depois `sql/reminders.sql` (nessa ordem — `reminders` referencia `profiles`). Ambos criam as tabelas com RLS habilitado, sem policy — só a `service_role` acessa.
+2. No SQL Editor do projeto, rode nessa ordem: `sql/profiles.sql`, `sql/reminders.sql`, `sql/002_add_consent.sql` (essa última adiciona o passo de consentimento no onboarding e habilita o comando "esquecer meus dados" — obrigatória antes de liberar pra qualquer usuário real). Todas criam/alteram com RLS habilitado, sem policy — só a `service_role` acessa.
 3. Copie a Project URL e a `service_role` key (Project Settings → API) pro `.env`.
 
 ### Criar o template dos lembretes (obrigatório antes de usar lembretes de verdade)
@@ -53,17 +53,21 @@ curl -X POST http://localhost:3000/test/message \
   -d '{"text": "Apareceu uma tela no app do banco pedindo para eu confirmar meu \"limite pré-aprovado\", tem um botão escrito ATUALIZAR CADASTRO. O que eu faço?"}'
 ```
 
-Sem o campo `"phone"`, todas as chamadas usam o mesmo número fixo de teste — então, na primeira vez, você cai direto no onboarding (pergunta o nome do assistente, depois o tom). Pra simular onboarding do zero, passe um `"phone"` novo:
+Sem o campo `"phone"`, todas as chamadas usam o mesmo número fixo de teste — então, na primeira vez, você cai direto no onboarding (consentimento → nome do assistente → tom). Pra simular onboarding do zero, passe um `"phone"` novo:
 
 ```bash
 curl -X POST http://localhost:3000/test/message -H "Content-Type: application/json" \
-  -d '{"phone": "5511900000000", "text": "oi"}'                          # pergunta o nome do assistente
+  -d '{"phone": "5511900000000", "text": "oi"}'                          # explica o que guarda, pede consentimento
+curl -X POST http://localhost:3000/test/message -H "Content-Type: application/json" \
+  -d '{"phone": "5511900000000", "text": "sim, pode"}'                   # registra consentimento, pergunta o nome do assistente
 curl -X POST http://localhost:3000/test/message -H "Content-Type: application/json" \
   -d '{"phone": "5511900000000", "text": "pode me chamar de Zeca"}'      # pergunta o tom
 curl -X POST http://localhost:3000/test/message -H "Content-Type: application/json" \
   -d '{"phone": "5511900000000", "text": "mais próximo e afetuoso"}'     # conclui onboarding
 curl -X POST http://localhost:3000/test/message -H "Content-Type: application/json" \
   -d '{"phone": "5511900000000", "text": "oi de novo"}'                  # segue pro fluxo normal, já personalizado
+curl -X POST http://localhost:3000/test/message -H "Content-Type: application/json" \
+  -d '{"phone": "5511900000000", "text": "esquece meus dados"}'          # apaga o perfil e os lembretes associados
 ```
 
 O harness só fica disponível quando `NODE_ENV` não é `production` (padrão no `.env.example`).
@@ -89,6 +93,7 @@ Chamar `POST /webhook` diretamente (fora do harness) agora exige um header `X-Hu
 sql/
   profiles.sql                 # DDL da tabela profiles (rodar manualmente no Supabase)
   reminders.sql                # DDL da tabela reminders (rodar depois de profiles.sql)
+  002_add_consent.sql          # migração: consentimento no onboarding + cascade de delete
 scripts/
   createReminderTemplate.js    # cria o message template dos lembretes no WABA (rodar uma vez)
   checkReminderTemplate.js     # consulta o status de aprovação do template
@@ -109,6 +114,7 @@ src/
     supabaseClient.js           # cliente Supabase (service role)
     profileStore.js             # acesso à tabela profiles (perfil, onboarding, preferências)
     preferences.js               # extrai nome/tom de texto livre (Haiku)
+    consent.js                   # mensagem de consentimento (LGPD) + interpretação da resposta (Haiku)
     personalization.js          # injeta nome/tom/contexto no system prompt
     transcription.js             # transcreve áudio via Whisper (OpenAI)
     agenda.js                    # extrai descrição/data de um lembrete a partir de texto (Haiku)
@@ -131,5 +137,5 @@ Rodar os testes: `npm test` (ou `npm run test:watch`). Usa o test runner nativo 
 - Fila de verdade (BullMQ+Redis) pro disparo de lembretes — cron simples in-process resolve bem o volume de uso pessoal do MVP.
 - Módulo família — fase 6.
 - Resumo de histórico mais longo via IA — hoje só a última interação relevante é resumida, deterministicamente.
-- LGPD formal (política de retenção, direito ao esquecimento) — pendência que cresce a cada fase; a partir de agora envolve também dados de agenda/compromissos potencialmente médicos. Revisão fica pra Fase 7.
+- LGPD: consentimento explícito no onboarding e comando "esquecer meus dados" (direito ao esquecimento básico) já implementados. Falta política de retenção formal por escrito e revisão completa — fica pra Fase 7.
 - Rate limiting por usuário — ainda não implementado.

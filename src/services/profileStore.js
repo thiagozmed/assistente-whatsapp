@@ -24,6 +24,24 @@ async function createProfile(phoneNumber) {
   return data;
 }
 
+async function recordConsent(phoneNumber) {
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({ consented_at: new Date().toISOString(), onboarding_state: 'aguardando_nome', updated_at: new Date().toISOString() })
+    .eq('phone_number', phoneNumber)
+    .select()
+    .single();
+  assertNoError(error, 'recordConsent');
+  return data;
+}
+
+async function deleteProfile(phoneNumber) {
+  // O cascade da FK em reminders (sql/002_add_consent.sql) apaga os
+  // lembretes associados junto, sem precisar orquestrar duas tabelas aqui.
+  const { error } = await supabase.from('profiles').delete().eq('phone_number', phoneNumber);
+  assertNoError(error, 'deleteProfile');
+}
+
 async function updateName(phoneNumber, assistantName) {
   const { data, error } = await supabase
     .from('profiles')
@@ -72,4 +90,13 @@ async function recordInteraction(phoneNumber, { type, summary }) {
   return data;
 }
 
-module.exports = { getProfile, createProfile, updateName, updateTone, updatePreference, recordInteraction };
+module.exports = {
+  getProfile,
+  createProfile,
+  recordConsent,
+  deleteProfile,
+  updateName,
+  updateTone,
+  updatePreference,
+  recordInteraction,
+};

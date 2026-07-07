@@ -4,6 +4,7 @@ const { client } = require('../../src/services/claudeClient');
 const profileStore = require('../../src/services/profileStore');
 const reminderStore = require('../../src/services/reminderStore');
 const transcription = require('../../src/services/transcription');
+const consent = require('../../src/services/consent');
 const { handleIncomingText, handleIncomingImage, handleIncomingAudio } = require('../../src/services/messageHandler');
 
 function textResponse(payloadOrText) {
@@ -19,20 +20,60 @@ const COMPLETED_PROFILE = {
   last_interaction_summary: null,
 };
 
-test('handleIncomingText: número novo dispara onboarding (pergunta o nome) sem rotear a mensagem', async (t) => {
+test('handleIncomingText: número novo dispara onboarding (pede consentimento) sem rotear a mensagem', async (t) => {
   t.mock.method(profileStore, 'getProfile', async () => null);
   const createMock = t.mock.method(profileStore, 'createProfile', async () => ({
     phone_number: '5511999999999',
-    onboarding_state: 'aguardando_nome',
+    onboarding_state: 'aguardando_consentimento',
   }));
   const createModelMock = t.mock.method(client.messages, 'create', async () => {
     throw new Error('não deveria classificar intenção durante onboarding');
   });
 
   const reply = await handleIncomingText('5511999999999', 'oi');
-  assert.match(reply, /como você gostaria de me chamar/i);
+  assert.equal(reply, consent.CONSENT_MESSAGE);
   assert.equal(createMock.mock.callCount(), 1);
   assert.equal(createModelMock.mock.callCount(), 0);
+});
+
+test('handleIncomingText: onboarding aguardando_consentimento com "sim" registra consentimento e pergunta o nome', async (t) => {
+  t.mock.method(profileStore, 'getProfile', async () => ({
+    phone_number: '5511999999999',
+    onboarding_state: 'aguardando_consentimento',
+  }));
+  const recordMock = t.mock.method(profileStore, 'recordConsent', async () => ({
+    phone_number: '5511999999999',
+    onboarding_state: 'aguardando_nome',
+  }));
+  t.mock.method(client.messages, 'create', async () => textResponse({ resposta: 'sim' }));
+
+  const reply = await handleIncomingText('5511999999999', 'sim, pode');
+  assert.match(reply, /como você gostaria de me chamar/i);
+  assert.equal(recordMock.mock.callCount(), 1);
+});
+
+test('handleIncomingText: onboarding aguardando_consentimento com "não" não avança e não apaga nada', async (t) => {
+  t.mock.method(profileStore, 'getProfile', async () => ({
+    phone_number: '5511999999999',
+    onboarding_state: 'aguardando_consentimento',
+  }));
+  const recordMock = t.mock.method(profileStore, 'recordConsent', async () => ({}));
+  t.mock.method(client.messages, 'create', async () => textResponse({ resposta: 'nao' }));
+
+  const reply = await handleIncomingText('5511999999999', 'não quero');
+  assert.match(reply, /sem problemas/i);
+  assert.equal(recordMock.mock.callCount(), 0);
+});
+
+test('handleIncomingText: onboarding aguardando_consentimento com resposta ambígua pede pra repetir', async (t) => {
+  t.mock.method(profileStore, 'getProfile', async () => ({
+    phone_number: '5511999999999',
+    onboarding_state: 'aguardando_consentimento',
+  }));
+  t.mock.method(client.messages, 'create', async () => textResponse({ resposta: 'indefinido' }));
+
+  const reply = await handleIncomingText('5511999999999', 'sei lá');
+  assert.match(reply, /posso continuar/i);
 });
 
 test('handleIncomingText: onboarding aguardando_nome extrai o nome e pergunta o tom', async (t) => {
@@ -164,6 +205,17 @@ test('handleIncomingText: intent "agenda" sem data válida não cria lembrete e 
   assert.equal(createMock.mock.callCount(), 0);
 });
 
+test('handleIncomingText: intent "esquecer" apaga o perfil e confirma', async (t) => {
+  t.mock.method(profileStore, 'getProfile', async () => COMPLETED_PROFILE);
+  const deleteMock = t.mock.method(profileStore, 'deleteProfile', async () => {});
+  t.mock.method(client.messages, 'create', async () => textResponse({ intent: 'esquecer' }));
+
+  const reply = await handleIncomingText('5511999999999', 'esquece meus dados, por favor');
+  assert.match(reply, /apaguei/i);
+  assert.equal(deleteMock.mock.callCount(), 1);
+  assert.equal(deleteMock.mock.calls[0].arguments[0], '5511999999999');
+});
+
 test('handleIncomingText: falha da API Claude propaga erro sem travar o processo', async (t) => {
   t.mock.method(profileStore, 'getProfile', async () => COMPLETED_PROFILE);
   t.mock.method(client.messages, 'create', async () => {
@@ -175,12 +227,12 @@ test('handleIncomingText: falha da API Claude propaga erro sem travar o processo
 const FAKE_IMAGE = { mimeType: 'image/jpeg', buffer: Buffer.from('fake-screenshot-bytes') };
 const FAKE_AUDIO = { mimeType: 'audio/ogg', buffer: Buffer.from('fake-audio-bytes') };
 
-test('handleIncomingImage: número novo dispara onboarding', async (t) => {
+test('handleIncomingImage: número novo dispara onboarding (pede consentimento)', async (t) => {
   t.mock.method(profileStore, 'getProfile', async () => null);
-  t.mock.method(profileStore, 'createProfile', async () => ({ onboarding_state: 'aguardando_nome' }));
+  t.mock.method(profileStore, 'createProfile', async () => ({ onboarding_state: 'aguardando_consentimento' }));
 
   const reply = await handleIncomingImage('5511999999999', FAKE_IMAGE, undefined);
-  assert.match(reply, /como você gostaria de me chamar/i);
+  assert.equal(reply, consent.CONSENT_MESSAGE);
 });
 
 test('handleIncomingImage: onboarding incompleto pede pra terminar em texto', async (t) => {
