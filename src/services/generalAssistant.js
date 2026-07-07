@@ -1,4 +1,4 @@
-const { client, MODELS, firstText, MOCK } = require('./claudeClient');
+const { client, MODELS, finalText, MOCK } = require('./claudeClient');
 const { buildPersonalizedSystemPrompt } = require('./personalization');
 const { buildVisionContent } = require('./mediaContent');
 
@@ -84,7 +84,7 @@ async function triage(text) {
     messages: [{ role: 'user', content: text }],
   });
 
-  return JSON.parse(firstText(response));
+  return JSON.parse(finalText(response));
 }
 
 // Busca só é habilitada quando a triagem indica necessidade real (item pedido
@@ -93,6 +93,16 @@ async function triage(text) {
 // (mais barata em token) não é suportada pelo Haiku 4.5. max_uses baixo
 // limita o pior caso de custo por mensagem.
 const WEB_SEARCH_TOOL = { type: 'web_search_20260209', name: 'web_search', max_uses: 2 };
+
+// Quando a busca roda, o resultado (web_search_tool_result) conta contra o
+// mesmo max_tokens da resposta final — 1024 pode não sobrar espaço pro texto
+// de verdade depois dos resultados de busca. Dobra o teto só nesse caso
+// (achado da auditoria 2026-07-07).
+const DEFAULT_MAX_TOKENS = 1024;
+const SEARCH_MAX_TOKENS = 2048;
+
+const NO_REPLY_FALLBACK_MESSAGE =
+  'Desculpa, não consegui montar uma resposta agora — pode tentar perguntar de novo, talvez de um jeito diferente?';
 
 async function respond(text, profile, image) {
   const { blocked_reason: blockedReason, complexity, needs_search: needsSearch } = await triage(text);
@@ -110,16 +120,17 @@ async function respond(text, profile, image) {
   const model = image || complexity === 'complexa' || needsSearch ? MODELS.SONNET : MODELS.HAIKU;
   const response = await client.messages.create({
     model,
-    max_tokens: 1024,
+    max_tokens: needsSearch ? SEARCH_MAX_TOKENS : DEFAULT_MAX_TOKENS,
     ...(model === MODELS.SONNET ? { output_config: { effort: 'medium' } } : {}),
     ...(needsSearch ? { tools: [WEB_SEARCH_TOOL] } : {}),
     system: buildPersonalizedSystemPrompt(GENERAL_SYSTEM_PROMPT, profile),
     messages: [{ role: 'user', content: buildVisionContent(text, image) }],
   });
 
-  const reply = firstText(response);
+  const reply = finalText(response);
+  if (!reply) return NO_REPLY_FALLBACK_MESSAGE;
   if (looksLikeCode(reply)) return CODE_BLOCKED_MESSAGE;
   return reply;
 }
 
-module.exports = { respond, CODE_BLOCKED_MESSAGE, IMAGE_BLOCKED_MESSAGE, looksLikeCode };
+module.exports = { respond, CODE_BLOCKED_MESSAGE, IMAGE_BLOCKED_MESSAGE, NO_REPLY_FALLBACK_MESSAGE, looksLikeCode };

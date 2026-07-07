@@ -39,3 +39,12 @@ test('checkAndIncrement: erro do Supabase propaga como exceção', async (t) => 
 
   await assert.rejects(() => rateLimit.checkAndIncrement('123'), /conexão recusada/);
 });
+
+test('today: usa o fuso de Brasília, não UTC (bug real 2026-07-07)', (t) => {
+  t.mock.timers.enable({ apis: ['Date'] });
+  // 2026-01-15T02:00:00Z é 2026-01-14T23:00:00 em Brasília (UTC-3) — com o
+  // bug antigo (UTC puro), o dia "virava" 3h mais cedo do que devia.
+  t.mock.timers.setTime(new Date('2026-01-15T02:00:00.000Z').getTime());
+
+  assert.equal(rateLimit.today(), '2026-01-14');
+});

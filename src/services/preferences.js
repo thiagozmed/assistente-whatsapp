@@ -1,4 +1,4 @@
-const { client, MODELS, firstText, MOCK } = require('./claudeClient');
+const { client, MODELS, finalText, MOCK } = require('./claudeClient');
 
 const NAME_SCHEMA = {
   type: 'object',
@@ -51,7 +51,7 @@ Extraia só o nome escolhido (ex: em "pode me chamar de Zeca" extraia "Zeca"). S
     messages: [{ role: 'user', content: text }],
   });
 
-  const { name } = JSON.parse(firstText(response));
+  const { name } = JSON.parse(finalText(response));
   return name.trim() || null;
 }
 
@@ -67,7 +67,7 @@ Extraia um resumo bem curto (poucas palavras) do estilo de conversa pedido, do j
     messages: [{ role: 'user', content: text }],
   });
 
-  const { tone } = JSON.parse(firstText(response));
+  const { tone } = JSON.parse(finalText(response));
   return tone.trim() || null;
 }
 
@@ -86,7 +86,7 @@ Exemplo: "quero te chamar de Zeca e falar mais sério" -> name: "Zeca", tone: "s
     messages: [{ role: 'user', content: text }],
   });
 
-  const { name, tone } = JSON.parse(firstText(response));
+  const { name, tone } = JSON.parse(finalText(response));
   return { name: name.trim() || null, tone: tone.trim() || null };
 }
 

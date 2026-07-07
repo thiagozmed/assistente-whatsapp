@@ -1,7 +1,13 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { client, MODELS } = require('../../src/services/claudeClient');
-const { respond, CODE_BLOCKED_MESSAGE, IMAGE_BLOCKED_MESSAGE, looksLikeCode } = require('../../src/services/generalAssistant');
+const {
+  respond,
+  CODE_BLOCKED_MESSAGE,
+  IMAGE_BLOCKED_MESSAGE,
+  NO_REPLY_FALLBACK_MESSAGE,
+  looksLikeCode,
+} = require('../../src/services/generalAssistant');
 
 function textResponse(payloadOrText) {
   const text = typeof payloadOrText === 'string' ? payloadOrText : JSON.stringify(payloadOrText);
@@ -33,19 +39,22 @@ test('respond: pedido de imagem é bloqueado antes de chamar a IA de verdade', a
   assert.equal(call, 1);
 });
 
-test('respond: mensagem simples roteia pro Haiku (modelo mais barato)', async (t) => {
+test('respond: mensagem simples roteia pro Haiku (modelo mais barato) com max_tokens padrão', async (t) => {
   let call = 0;
   let capturedModel;
+  let capturedMaxTokens;
   t.mock.method(client.messages, 'create', async (params) => {
     call += 1;
     if (call === 1) return textResponse({ blocked_reason: 'nenhum', complexity: 'simples' });
     capturedModel = params.model;
+    capturedMaxTokens = params.max_tokens;
     return textResponse('Bom dia! Como posso ajudar?');
   });
 
   const reply = await respond('bom dia', {});
   assert.equal(reply, 'Bom dia! Como posso ajudar?');
   assert.equal(capturedModel, MODELS.HAIKU);
+  assert.equal(capturedMaxTokens, 1024);
   assert.equal(call, 2);
 });
 
@@ -119,15 +128,17 @@ test('respond: com imagem, usa Sonnet e envia o content block de visão, mesmo c
   assert.equal(capturedContent[0].type, 'image');
 });
 
-test('respond: pergunta que depende de informação atual habilita a busca e escala pro Sonnet', async (t) => {
+test('respond: pergunta que depende de informação atual habilita a busca, escala pro Sonnet e dobra o max_tokens', async (t) => {
   let call = 0;
   let capturedModel;
   let capturedTools;
+  let capturedMaxTokens;
   t.mock.method(client.messages, 'create', async (params) => {
     call += 1;
     if (call === 1) return textResponse({ blocked_reason: 'nenhum', complexity: 'simples', needs_search: true });
     capturedModel = params.model;
     capturedTools = params.tools;
+    capturedMaxTokens = params.max_tokens;
     return textResponse('O jogo do Brasil é hoje às 16h.');
   });
 
@@ -135,6 +146,39 @@ test('respond: pergunta que depende de informação atual habilita a busca e esc
   assert.match(reply, /16h/);
   assert.equal(capturedModel, MODELS.SONNET);
   assert.deepEqual(capturedTools, [{ type: 'web_search_20260209', name: 'web_search', max_uses: 2 }]);
+  assert.equal(capturedMaxTokens, 2048);
+});
+
+test('respond: com busca, usa o ÚLTIMO bloco de texto da resposta, não o preâmbulo (bug real 2026-07-07)', async (t) => {
+  let call = 0;
+  t.mock.method(client.messages, 'create', async () => {
+    call += 1;
+    if (call === 1) return textResponse({ blocked_reason: 'nenhum', complexity: 'simples', needs_search: true });
+    // Formato real de resposta com server tool: preâmbulo -> tool use -> resultado -> texto final.
+    return {
+      content: [
+        { type: 'text', text: 'Deixa eu verificar isso pra você...' },
+        { type: 'server_tool_use', id: 'srvtoolu_1', name: 'web_search', input: {} },
+        { type: 'web_search_tool_result', tool_use_id: 'srvtoolu_1', content: [] },
+        { type: 'text', text: 'O jogo do Brasil é hoje às 16h.' },
+      ],
+    };
+  });
+
+  const reply = await respond('a que horas é o jogo do brasil hoje', {});
+  assert.equal(reply, 'O jogo do Brasil é hoje às 16h.');
+});
+
+test('respond: resposta sem nenhum bloco de texto (ex: cortada por max_tokens) cai no fallback, não manda mensagem vazia', async (t) => {
+  let call = 0;
+  t.mock.method(client.messages, 'create', async () => {
+    call += 1;
+    if (call === 1) return textResponse({ blocked_reason: 'nenhum', complexity: 'simples', needs_search: true });
+    return { content: [{ type: 'server_tool_use', id: 'srvtoolu_1', name: 'web_search', input: {} }] };
+  });
+
+  const reply = await respond('a que horas é o jogo do brasil hoje', {});
+  assert.equal(reply, NO_REPLY_FALLBACK_MESSAGE);
 });
 
 test('respond: pergunta comum não habilita busca nem manda o parâmetro tools', async (t) => {

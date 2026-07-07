@@ -1,4 +1,4 @@
-const { client, MODELS, firstText, MOCK } = require('./claudeClient');
+const { client, MODELS, finalText, MOCK } = require('./claudeClient');
 const { buildPersonalizedSystemPrompt } = require('./personalization');
 const { buildVisionContent } = require('./mediaContent');
 
@@ -55,7 +55,7 @@ async function classify(text, image) {
     messages: [{ role: 'user', content: buildVisionContent(text, image) }],
   });
 
-  return JSON.parse(firstText(response));
+  return JSON.parse(finalText(response));
 }
 
 async function draftAlert(text, classification, motivo, profile) {
@@ -80,7 +80,7 @@ async function draftAlert(text, classification, motivo, profile) {
     ],
   });
 
-  return firstText(response);
+  return finalText(response);
 }
 
 async function checkForScam(text, profile, image) {

@@ -40,6 +40,13 @@ test('normalizeWhatsAppFormatting: texto sem markdown não muda', () => {
   assert.equal(normalizeWhatsAppFormatting('Bom dia! Como posso ajudar? 😊'), 'Bom dia! Como posso ajudar? 😊');
 });
 
+test('normalizeWhatsAppFormatting: converte negrito que cruza quebra de linha (achado da auditoria 2026-07-07)', () => {
+  assert.equal(
+    normalizeWhatsAppFormatting('**Passo\nimportante**: leia com calma.'),
+    '*Passo\nimportante*: leia com calma.',
+  );
+});
+
 test('normalizeWhatsAppFormatting: negrito já no formato correto (um asterisco) não muda', () => {
   assert.equal(normalizeWhatsAppFormatting('*1. Ligando a caixa*\nProcure o botão.'), '*1. Ligando a caixa*\nProcure o botão.');
 });

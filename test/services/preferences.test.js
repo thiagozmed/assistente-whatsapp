@@ -44,6 +44,12 @@ test('extractPreferenceUpdate: campo ausente vira null (atualização parcial)',
   assert.deepEqual(result, { name: null, tone: 'mais descontraído' });
 });
 
+test('extractPreferenceUpdate: tom vazio isolado (só pediu pra mudar o nome) vira null', async (t) => {
+  t.mock.method(client.messages, 'create', async () => textResponse({ name: 'Cuca', tone: '' }));
+  const result = await preferences.extractPreferenceUpdate('quero te chamar de Cuca');
+  assert.deepEqual(result, { name: 'Cuca', tone: null });
+});
+
 test('buildConfirmationMessage: nome e tom juntos', () => {
   const msg = preferences.buildConfirmationMessage({ name: 'Zeca', tone: 'sério' });
   assert.match(msg, /Zeca/);
