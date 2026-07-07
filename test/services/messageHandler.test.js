@@ -233,16 +233,63 @@ test('handleIncomingText: intent "agenda" sem data válida não cria lembrete e 
   assert.equal(createMock.mock.callCount(), 0);
 });
 
-test('handleIncomingText: intent "esquecer" apaga o perfil e confirma', async (t) => {
+test('handleIncomingText: intent "esquecer" pede confirmação em vez de apagar na hora', async (t) => {
   mockRateLimitAllowed(t);
   t.mock.method(profileStore, 'getProfile', async () => COMPLETED_PROFILE);
   const deleteMock = t.mock.method(profileStore, 'deleteProfile', async () => {});
+  const pendingMock = t.mock.method(profileStore, 'updatePendingAction', async () => ({}));
   t.mock.method(client.messages, 'create', async () => textResponse({ intent: 'esquecer' }));
 
   const reply = await handleIncomingText('5511999999999', 'esquece meus dados, por favor');
+  assert.match(reply, /tem certeza/i);
+  assert.equal(deleteMock.mock.callCount(), 0);
+  assert.equal(pendingMock.mock.calls[0].arguments[0], '5511999999999');
+  assert.equal(pendingMock.mock.calls[0].arguments[1], 'confirmar_esquecer');
+});
+
+test('handleIncomingText: confirmação "sim" com ação pendente apaga o perfil de verdade', async (t) => {
+  t.mock.method(profileStore, 'getProfile', async () => ({ ...COMPLETED_PROFILE, pending_action: 'confirmar_esquecer' }));
+  const deleteMock = t.mock.method(profileStore, 'deleteProfile', async () => {});
+  t.mock.method(client.messages, 'create', async () => textResponse({ resposta: 'sim' }));
+
+  const reply = await handleIncomingText('5511999999999', 'sim, pode apagar');
   assert.match(reply, /apaguei/i);
   assert.equal(deleteMock.mock.callCount(), 1);
   assert.equal(deleteMock.mock.calls[0].arguments[0], '5511999999999');
+});
+
+test('handleIncomingText: confirmação "não" com ação pendente cancela sem apagar', async (t) => {
+  t.mock.method(profileStore, 'getProfile', async () => ({ ...COMPLETED_PROFILE, pending_action: 'confirmar_esquecer' }));
+  const deleteMock = t.mock.method(profileStore, 'deleteProfile', async () => {});
+  const clearMock = t.mock.method(profileStore, 'updatePendingAction', async () => ({}));
+  t.mock.method(client.messages, 'create', async () => textResponse({ resposta: 'nao' }));
+
+  const reply = await handleIncomingText('5511999999999', 'não, deixa como está');
+  assert.match(reply, /não vou apagar/i);
+  assert.equal(deleteMock.mock.callCount(), 0);
+  assert.equal(clearMock.mock.calls[0].arguments[1], null);
+});
+
+test('handleIncomingText: resposta ambígua com ação pendente pede pra repetir sem apagar', async (t) => {
+  t.mock.method(profileStore, 'getProfile', async () => ({ ...COMPLETED_PROFILE, pending_action: 'confirmar_esquecer' }));
+  const deleteMock = t.mock.method(profileStore, 'deleteProfile', async () => {});
+  t.mock.method(client.messages, 'create', async () => textResponse({ resposta: 'indefinido' }));
+
+  const reply = await handleIncomingText('5511999999999', 'hein?');
+  assert.match(reply, /não entendi/i);
+  assert.equal(deleteMock.mock.callCount(), 0);
+});
+
+test('handleIncomingText: mensagem acima do limite de tamanho é rejeitada antes de tocar em qualquer serviço', async (t) => {
+  const getProfileMock = t.mock.method(profileStore, 'getProfile', async () => COMPLETED_PROFILE);
+  const createModelMock = t.mock.method(client.messages, 'create', async () => {
+    throw new Error('não deveria chamar a IA com mensagem gigante');
+  });
+
+  const reply = await handleIncomingText('5511999999999', 'x'.repeat(4001));
+  assert.match(reply, /grande demais/i);
+  assert.equal(getProfileMock.mock.callCount(), 0);
+  assert.equal(createModelMock.mock.callCount(), 0);
 });
 
 test('handleIncomingText: falha da API Claude propaga erro sem travar o processo', async (t) => {
@@ -272,15 +319,35 @@ test('handleIncomingImage: onboarding incompleto pede pra terminar em texto', as
   assert.match(reply, /terminar de te conhecer/i);
 });
 
-test('handleIncomingImage: sem legenda, trata como burocracia', async (t) => {
+test('handleIncomingImage: sem legenda, mas imagem é uma tela confusa -> roteia pra burocracia', async (t) => {
   mockRateLimitAllowed(t);
   t.mock.method(profileStore, 'getProfile', async () => COMPLETED_PROFILE);
   const recordMock = t.mock.method(profileStore, 'recordInteraction', async () => COMPLETED_PROFILE);
-  t.mock.method(client.messages, 'create', async () => textResponse('1. Toque em ATUALIZAR CADASTRO.'));
+
+  let call = 0;
+  t.mock.method(client.messages, 'create', async () => {
+    call += 1;
+    if (call === 1) return textResponse({ intent: 'burocracia' }); // router pelo conteúdo da imagem
+    return textResponse('1. Toque em ATUALIZAR CADASTRO.');
+  });
 
   const reply = await handleIncomingImage('5511999999999', FAKE_IMAGE, undefined);
   assert.match(reply, /atualizar cadastro/i);
   assert.equal(recordMock.mock.calls[0].arguments[1].type, 'burocracia');
+});
+
+test('handleIncomingImage: sem legenda e sem relação com golpe/burocracia -> vai pro assistente geral', async (t) => {
+  mockRateLimitAllowed(t);
+  t.mock.method(profileStore, 'getProfile', async () => COMPLETED_PROFILE);
+  const recordMock = t.mock.method(profileStore, 'recordInteraction', async () => COMPLETED_PROFILE);
+  const respondMock = t.mock.method(generalAssistant, 'respond', async () => 'Isso parece um aparelho de leg press!');
+  t.mock.method(client.messages, 'create', async () => textResponse({ intent: 'outro' }));
+
+  const reply = await handleIncomingImage('5511999999999', FAKE_IMAGE, undefined);
+  assert.equal(reply, 'Isso parece um aparelho de leg press!');
+  assert.equal(respondMock.mock.callCount(), 1);
+  assert.equal(respondMock.mock.calls[0].arguments[2], FAKE_IMAGE);
+  assert.equal(recordMock.mock.calls[0].arguments[1].type, 'geral');
 });
 
 test('handleIncomingImage: legenda de golpe roteia pro escudo contra golpe', async (t) => {

@@ -38,3 +38,17 @@ test('classifyIntent: falha de API propaga erro', async (t) => {
   });
   await assert.rejects(() => classifyIntent('oi'), /simulated Anthropic outage/);
 });
+
+test('classifyIntent: com imagem, envia content block de visão pro Haiku', async (t) => {
+  let capturedContent;
+  t.mock.method(client.messages, 'create', async (params) => {
+    capturedContent = params.messages[0].content;
+    return textResponse({ intent: 'outro' });
+  });
+
+  const image = { mimeType: 'image/jpeg', buffer: Buffer.from('fake-photo-bytes') };
+  const intent = await classifyIntent('', image);
+  assert.equal(intent, 'outro');
+  assert.equal(capturedContent.length, 1);
+  assert.equal(capturedContent[0].type, 'image');
+});
