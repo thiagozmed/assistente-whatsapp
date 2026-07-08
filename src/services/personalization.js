@@ -17,10 +17,20 @@ const FORMATTING_INSTRUCTIONS = `Formatação de mensagem pro WhatsApp (atençã
 - Itálico, se precisar: _um underscore_ de cada lado (ex: _assim_).
 - Emojis são bem-vindos com moderação — pra deixar a conversa mais leve ou pontuar os itens de uma lista — mas sem exagerar nem forçar em toda frase.`;
 
+// Sem isso, a IA não tem como saber "hoje" é — mesmo fazendo uma busca real na
+// internet, ela não consegue ancorar o resultado a "já aconteceu / está
+// acontecendo / ainda vai acontecer" (bug reportado pelo usuário 2026-07-08:
+// perguntado sobre a Copa do Mundo 2026, que estava em andamento, respondeu
+// "ainda não começou" depois de pesquisar, por não saber a data atual).
+function currentDateContext() {
+  const formatted = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'full', timeZone: 'America/Sao_Paulo' }).format(new Date());
+  return `Hoje é ${formatted} (horário de Brasília). Use essa data como referência de "agora" — inclusive ao interpretar resultados de busca na internet, pra saber se um evento já aconteceu, está em andamento ou ainda vai acontecer.`;
+}
+
 // Base prompt sempre primeiro, personalização sempre depois como sufixo — deixa
 // pronto pra um cache_control breakpoint futuro (Fase 7) sem precisar redesenhar.
 function buildPersonalizedSystemPrompt(basePrompt, profile) {
-  const parts = [basePrompt, `\n---\n${FORMATTING_INSTRUCTIONS}`];
+  const parts = [basePrompt, `\n---\n${currentDateContext()}`, `\n---\n${FORMATTING_INSTRUCTIONS}`];
 
   if (!profile) return parts.join('\n');
 

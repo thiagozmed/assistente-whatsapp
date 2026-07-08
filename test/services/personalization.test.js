@@ -11,6 +11,12 @@ test('sem perfil, mantém o prompt base e ainda inclui as instruções de format
   assert.match(prompt, /emojis/i);
 });
 
+test('inclui a data de hoje, pra IA conseguir ancorar resultado de busca a "agora" (bug da Copa do Mundo 2026-07-08)', () => {
+  const prompt = buildPersonalizedSystemPrompt(BASE, null);
+  assert.match(prompt, /hoje é/i);
+  assert.match(prompt, /\b2026\b/);
+});
+
 test('instruções de formatação proíbem negrito com dois asteriscos (bug do WhatsApp)', () => {
   const prompt = buildPersonalizedSystemPrompt(BASE, null);
   assert.match(prompt, /nunca use \*\*dois asteriscos\*\*/i);
