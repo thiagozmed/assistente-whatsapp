@@ -55,7 +55,11 @@ function askToneMessage(assistantName) {
 }
 
 function welcomeMessage(profile) {
-  return `Combinado! Vou falar com você desse jeito: ${profile.tone}. Pode me chamar de ${profile.assistant_name} sempre que precisar. Em que posso ajudar?`;
+  return `Combinado! Vou falar com você desse jeito: ${profile.tone}. Pode me chamar de ${profile.assistant_name} sempre que precisar.
+
+Ah, só pra você saber o que eu consigo fazer: posso checar se um site, anúncio ou mensagem suspeita é golpe, tirar dúvida sobre qualquer assunto de tecnologia, buscar uma informação rápida na internet quando for preciso, e também analisar fotos que você mandar — de tela confusa a documento. Tudo isso funciona por áudio também, é só mandar gravando que eu entendo.
+
+Em que posso ajudar?`;
 }
 
 function truncate(text, max) {

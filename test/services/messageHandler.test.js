@@ -120,6 +120,28 @@ test('handleIncomingText: onboarding aguardando_tom conclui e dá boas-vindas', 
   assert.match(reply, /alegre e descontraído/);
 });
 
+test('handleIncomingText: mensagem final do onboarding resume as principais capacidades (postura educativa)', async (t) => {
+  t.mock.method(profileStore, 'getProfile', async () => ({
+    phone_number: '5511999999999',
+    assistant_name: 'Zeca',
+    onboarding_state: 'aguardando_tom',
+  }));
+  t.mock.method(profileStore, 'updateTone', async (phone, tone) => ({
+    phone_number: phone,
+    assistant_name: 'Zeca',
+    tone,
+    onboarding_state: 'completo',
+  }));
+  t.mock.method(client.messages, 'create', async () => textResponse({ tone: 'afetuoso' }));
+
+  const reply = await handleIncomingText('5511999999999', 'bem afetuoso, por favor');
+  assert.match(reply, /golpe/i);
+  assert.match(reply, /tecnologia/i);
+  assert.match(reply, /internet/i);
+  assert.match(reply, /foto/i);
+  assert.match(reply, /áudio/i);
+});
+
 test('handleIncomingText: pedido de "esquecer" durante aguardando_nome pede confirmação em vez de insistir no nome', async (t) => {
   t.mock.method(profileStore, 'getProfile', async () => ({
     phone_number: '5511999999999',
