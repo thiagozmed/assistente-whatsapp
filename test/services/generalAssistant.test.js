@@ -145,8 +145,8 @@ test('respond: pergunta que depende de informação atual habilita a busca, esca
   const reply = await respond('a que horas é o jogo do brasil hoje', {});
   assert.match(reply, /16h/);
   assert.equal(capturedModel, MODELS.SONNET);
-  assert.deepEqual(capturedTools, [{ type: 'web_search_20260209', name: 'web_search', max_uses: 2 }]);
-  assert.equal(capturedMaxTokens, 2048);
+  assert.deepEqual(capturedTools, [{ type: 'web_search_20260209', name: 'web_search', max_uses: 4 }]);
+  assert.equal(capturedMaxTokens, 3072);
 });
 
 test('respond: com busca, usa o ÚLTIMO bloco de texto da resposta, não o preâmbulo (bug real 2026-07-07)', async (t) => {

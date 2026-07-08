@@ -90,16 +90,23 @@ async function triage(text) {
 // Busca só é habilitada quando a triagem indica necessidade real (item pedido
 // pelo usuário 2026-07-07: "nem tudo, pra não gastar muito token
 // inicialmente") — e só no Sonnet, já que a variante com filtragem dinâmica
-// (mais barata em token) não é suportada pelo Haiku 4.5. max_uses baixo
-// limita o pior caso de custo por mensagem.
-const WEB_SEARCH_TOOL = { type: 'web_search_20260209', name: 'web_search', max_uses: 2 };
+// (mais barata em token) não é suportada pelo Haiku 4.5. max_uses limita o
+// pior caso de custo por mensagem. Subido de 2 pra 4 (2026-07-08): com
+// perguntas que dependem de placar/resultado específico, o modelo às vezes
+// precisa de uma segunda busca pra confirmar ou corrigir o que achou na
+// primeira — com o teto em 2 ele podia ficar sem margem e devolver uma
+// resposta incompleta/incerta.
+const WEB_SEARCH_TOOL = { type: 'web_search_20260209', name: 'web_search', max_uses: 4 };
 
 // Quando a busca roda, o resultado (web_search_tool_result) conta contra o
 // mesmo max_tokens da resposta final — 1024 pode não sobrar espaço pro texto
 // de verdade depois dos resultados de busca. Dobra o teto só nesse caso
-// (achado da auditoria 2026-07-07).
+// (achado da auditoria 2026-07-07). Subido de 2048 pra 3072 (2026-07-08),
+// junto com o aumento de max_uses acima — mais buscas permitidas significa
+// mais conteúdo de resultado consumindo o mesmo orçamento de tokens antes da
+// resposta final de verdade.
 const DEFAULT_MAX_TOKENS = 1024;
-const SEARCH_MAX_TOKENS = 2048;
+const SEARCH_MAX_TOKENS = 3072;
 
 const NO_REPLY_FALLBACK_MESSAGE =
   'Desculpa, não consegui montar uma resposta agora — pode tentar perguntar de novo, talvez de um jeito diferente?';
