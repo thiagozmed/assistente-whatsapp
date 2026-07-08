@@ -25,3 +25,21 @@ test('finalText: nenhum bloco de texto (ex: cortado por max_tokens) devolve stri
   const response = { content: [{ type: 'server_tool_use', id: 'srvtoolu_1', name: 'web_search', input: {} }] };
   assert.equal(finalText(response), '');
 });
+
+test('finalText: resposta final dividida em vários blocos de texto consecutivos é concatenada inteira (bug real 2026-07-08)', () => {
+  // Formato real observado em produção: com busca na internet, a resposta
+  // final às vezes vem em VÁRIOS blocos "text" seguidos, não um só. Pegar só
+  // o último (fix anterior, 2026-07-07) mandava pro usuário uma frase solta
+  // sem o resto da resposta (ex: usuário perguntou se o Brasil seguia na
+  // Copa, e recebeu só "Se quiser, posso te contar quem são os favoritos!").
+  const response = {
+    content: [
+      { type: 'thinking', thinking: '' },
+      { type: 'server_tool_use', id: 'srvtoolu_1', name: 'web_search', input: { query: 'brasil copa do mundo 2026' } },
+      { type: 'web_search_tool_result', tool_use_id: 'srvtoolu_1', content: [] },
+      { type: 'text', text: 'Não, o Brasil já foi eliminado! 😔\n\n' },
+      { type: 'text', text: 'A Seleção perdeu por 2 a 1 para a Noruega nas oitavas de final.' },
+    ],
+  };
+  assert.equal(finalText(response), 'Não, o Brasil já foi eliminado! 😔\n\nA Seleção perdeu por 2 a 1 para a Noruega nas oitavas de final.');
+});

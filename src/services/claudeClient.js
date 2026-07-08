@@ -11,16 +11,27 @@ const MODELS = {
   SONNET: 'claude-sonnet-5',
 };
 
-// Pega o ÚLTIMO bloco de texto, não o primeiro (bug real 2026-07-07): quando
-// a resposta usa uma server tool (ex: busca na internet em
-// generalAssistant.js), o content vem como [preâmbulo de texto opcional,
-// server_tool_use, tool_result, texto final com a resposta de verdade] — o
-// primeiro bloco de texto pode ser só "deixa eu verificar isso...", não a
-// resposta. Em chamadas sem tool use (a maioria do código) só existe um
-// bloco de texto, então pegar o último não muda nada pra elas.
+// Concatena todos os blocos de texto DEPOIS do último bloco de ferramenta
+// (server_tool_use/tool_result/thinking), não só o último bloco de texto
+// (bug real 2026-07-08): com busca na internet, a resposta final às vezes sai
+// dividida em vários blocos de texto consecutivos (não um só) — pegar só o
+// último bloco (fix de 2026-07-07 pro bug do preâmbulo "deixa eu verificar
+// isso...") descartava o começo da resposta de verdade, mandando pro usuário
+// só a última frase solta, sem contexto nenhum (ex: usuário perguntou se o
+// Brasil ainda estava na Copa, a IA respondeu com só uma frase final que não
+// dizia nada). Em chamadas sem tool use (a maioria do código) só existe um
+// bloco de texto no final, então isso não muda nada pra elas.
 function finalText(response) {
-  const blocks = response.content.filter((b) => b.type === 'text');
-  return blocks.length ? blocks[blocks.length - 1].text : '';
+  const blocks = response.content;
+  let lastToolIndex = -1;
+  blocks.forEach((block, i) => {
+    if (block.type !== 'text') lastToolIndex = i;
+  });
+  return blocks
+    .slice(lastToolIndex + 1)
+    .filter((block) => block.type === 'text')
+    .map((block) => block.text)
+    .join('');
 }
 
 module.exports = { client, MODELS, finalText, MOCK };
