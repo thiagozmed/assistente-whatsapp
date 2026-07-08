@@ -88,6 +88,21 @@ test('respond: personalização do perfil é injetada no system prompt da respos
   assert.match(capturedSystem, /descontraído e engraçado/);
 });
 
+test('respond: system prompt ensina a IA sobre as próprias funções nativas (lembrete, golpe, burocracia) — evita recomendar app concorrente (bug real 2026-07-08)', async (t) => {
+  let call = 0;
+  let capturedSystem;
+  t.mock.method(client.messages, 'create', async (params) => {
+    call += 1;
+    if (call === 1) return textResponse({ blocked_reason: 'nenhum', complexity: 'simples' });
+    capturedSystem = params.system;
+    return textResponse('Consigo sim, é só me pedir!');
+  });
+
+  await respond('o que você consegue me lembrar se eu precisar de lembrete?', null);
+  assert.match(capturedSystem, /guardar um lembrete/i);
+  assert.match(capturedSystem, /nunca diga que não tem memória.*lembrete.*recomende apps concorrentes/i);
+});
+
 test('looksLikeCode: reconhece blocos de código markdown e padrões comuns', () => {
   assert.equal(looksLikeCode('```python\nprint("oi")\n```'), true);
   assert.equal(looksLikeCode('function soma(a, b) { return a + b; }'), true);
