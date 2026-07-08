@@ -135,7 +135,7 @@ async function handleIncomingText(phoneNumber, text, referenceTimestamp = new Da
   const { allowed } = await rateLimit.checkAndIncrement(phoneNumber);
   if (!allowed) return RATE_LIMIT_MESSAGE;
 
-  const intent = await classifyIntent(text);
+  const intent = await classifyIntent(text, undefined, profile);
 
   if (intent === 'golpe') {
     const { classification, motivo, reply } = await checkForScam(text, profile);
@@ -197,7 +197,7 @@ async function handleIncomingImage(phoneNumber, media, caption) {
   const { allowed } = await rateLimit.checkAndIncrement(phoneNumber);
   if (!allowed) return RATE_LIMIT_MESSAGE;
 
-  const intent = await classifyIntent(caption || '', media);
+  const intent = await classifyIntent(caption || '', media, profile);
 
   if (intent === 'golpe') {
     const { classification, motivo, reply } = await checkForScam(caption || '', profile, media);

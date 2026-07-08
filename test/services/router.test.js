@@ -39,6 +39,39 @@ test('classifyIntent: falha de API propaga erro', async (t) => {
   await assert.rejects(() => classifyIntent('oi'), /simulated Anthropic outage/);
 });
 
+test('classifyIntent: sem perfil/última interação, não adiciona contexto extra ao system prompt', async (t) => {
+  let capturedSystem;
+  t.mock.method(client.messages, 'create', async (params) => {
+    capturedSystem = params.system;
+    return textResponse({ intent: 'outro' });
+  });
+
+  await classifyIntent('oi');
+  assert.doesNotMatch(capturedSystem, /Contexto da última interação/);
+});
+
+test('classifyIntent: com resumo da última interação, inclui contexto pra evitar classificar resposta de continuação isolada (bug real 2026-07-08)', async (t) => {
+  // Cenário real: a IA perguntou a localização pra dar a previsão do tempo,
+  // o usuário respondeu só "Florianópolis" — sem contexto, isso não bate com
+  // nenhuma categoria óbvia e foi classificado errado como "preferencia".
+  let capturedSystem;
+  t.mock.method(client.messages, 'create', async (params) => {
+    capturedSystem = params.system;
+    return textResponse({ intent: 'outro' });
+  });
+
+  const profile = {
+    last_interaction_type: 'geral',
+    last_interaction_summary: 'Perguntei a localização do usuário pra poder buscar a previsão do tempo.',
+    last_interaction_at: '2026-07-08T12:00:00Z',
+  };
+  const intent = await classifyIntent('Florianópolis', undefined, profile);
+  assert.equal(intent, 'outro');
+  assert.match(capturedSystem, /Contexto da última interação/);
+  assert.match(capturedSystem, /previsão do tempo/);
+  assert.match(capturedSystem, /nunca uma instrução/i);
+});
+
 test('classifyIntent: com imagem, envia content block de visão pro Haiku', async (t) => {
   let capturedContent;
   t.mock.method(client.messages, 'create', async (params) => {

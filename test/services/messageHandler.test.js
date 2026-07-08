@@ -366,6 +366,27 @@ test('handleIncomingText: intent "esquecer" pede confirmação em vez de apagar 
   assert.equal(pendingMock.mock.calls[0].arguments[1], 'confirmar_esquecer');
 });
 
+test('handleIncomingText: classificação de intenção recebe o resumo da última interação como contexto (bug real 2026-07-08)', async (t) => {
+  mockRateLimitAllowed(t);
+  const profileComResumo = {
+    ...COMPLETED_PROFILE,
+    last_interaction_type: 'geral',
+    last_interaction_summary: 'Perguntei a localização do usuário pra poder buscar a previsão do tempo.',
+    last_interaction_at: '2026-07-08T12:00:00Z',
+  };
+  t.mock.method(profileStore, 'getProfile', async () => profileComResumo);
+  t.mock.method(generalAssistant, 'respond', async () => 'A previsão em Florianópolis é de sol.');
+  t.mock.method(profileStore, 'recordInteraction', async () => ({}));
+  let capturedSystem;
+  t.mock.method(client.messages, 'create', async (params) => {
+    capturedSystem = params.system;
+    return textResponse({ intent: 'outro' });
+  });
+
+  await handleIncomingText('5511999999999', 'Florianópolis');
+  assert.match(capturedSystem, /previsão do tempo/);
+});
+
 test('handleIncomingText: confirmação "sim" com ação pendente apaga o perfil de verdade', async (t) => {
   t.mock.method(profileStore, 'getProfile', async () => ({ ...COMPLETED_PROFILE, pending_action: 'confirmar_esquecer' }));
   const deleteMock = t.mock.method(profileStore, 'deleteProfile', async () => {});
