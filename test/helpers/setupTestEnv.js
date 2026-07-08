@@ -12,3 +12,4 @@ process.env.SUPABASE_URL = 'https://test-project.supabase.co';
 process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
 process.env.MOCK_TRANSCRIPTION = 'false';
 process.env.OPENAI_API_KEY = 'test-openai-key';
+process.env.DATA_ENCRYPTION_KEY = 'Cey/Ua3VGi0TllIJepHiYZfcdcqLoEdZwdRFQAe1VsA=';

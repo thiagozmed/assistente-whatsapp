@@ -1,8 +1,9 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { supabase } = require('../../src/services/supabaseClient');
-const { fakeQuery } = require('../helpers/fakeSupabase');
+const { fakeQuery, fakeQueryCapture } = require('../helpers/fakeSupabase');
 const profileStore = require('../../src/services/profileStore');
+const { encrypt } = require('../../src/services/encryption');
 
 test('getProfile: perfil encontrado retorna os dados', async (t) => {
   t.mock.method(supabase, 'from', () => fakeQuery({ data: { phone_number: '123', onboarding_state: 'completo' }, error: null }));
@@ -85,6 +86,49 @@ test('updateTone: atualiza tom e conclui onboarding', async (t) => {
   const profile = await profileStore.updateTone('123', 'afetuoso');
   assert.equal(profile.tone, 'afetuoso');
   assert.equal(profile.onboarding_state, 'completo');
+});
+
+test('updateTone: cifra o tom antes de enviar pro Supabase, e decifra o valor devolvido (proteção de dados 2026-07-08)', async (t) => {
+  let sentPayload;
+  t.mock.method(supabase, 'from', () =>
+    fakeQueryCapture({ data: { phone_number: '123', tone: encrypt('afetuoso'), onboarding_state: 'completo' }, error: null }, (payload) => {
+      sentPayload = payload;
+    }),
+  );
+
+  const profile = await profileStore.updateTone('123', 'afetuoso');
+  assert.notEqual(sentPayload.tone, 'afetuoso');
+  assert.match(sentPayload.tone, /^enc:v1:/);
+  assert.equal(profile.tone, 'afetuoso');
+});
+
+test('recordInteraction: cifra o resumo antes de enviar pro Supabase, e decifra o valor devolvido (proteção de dados 2026-07-08)', async (t) => {
+  let sentPayload;
+  t.mock.method(supabase, 'from', () =>
+    fakeQueryCapture(
+      { data: { phone_number: '123', last_interaction_type: 'golpe', last_interaction_summary: encrypt('link falso de prêmio') }, error: null },
+      (payload) => {
+        sentPayload = payload;
+      },
+    ),
+  );
+
+  const profile = await profileStore.recordInteraction('123', { type: 'golpe', summary: 'link falso de prêmio' });
+  assert.match(sentPayload.last_interaction_summary, /^enc:v1:/);
+  assert.equal(profile.last_interaction_summary, 'link falso de prêmio');
+});
+
+test('getProfile: decifra tone e last_interaction_summary cifrados', async (t) => {
+  t.mock.method(supabase, 'from', () =>
+    fakeQuery({
+      data: { phone_number: '123', tone: encrypt('sério e direto'), last_interaction_summary: encrypt('golpe_conhecido — pix urgente') },
+      error: null,
+    }),
+  );
+
+  const profile = await profileStore.getProfile('123');
+  assert.equal(profile.tone, 'sério e direto');
+  assert.equal(profile.last_interaction_summary, 'golpe_conhecido — pix urgente');
 });
 
 test('updatePreference: atualização parcial (só tom)', async (t) => {

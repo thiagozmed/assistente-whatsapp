@@ -1,4 +1,5 @@
 const { supabase } = require('./supabaseClient');
+const { encrypt, decrypt } = require('./encryption');
 
 function assertNoError(error, action) {
   if (error) {
@@ -6,10 +7,19 @@ function assertNoError(error, action) {
   }
 }
 
+// tone e last_interaction_summary são texto livre derivado de conversa —
+// podem conter saúde, dinheiro, compromisso etc. Cifrados na aplicação antes
+// de chegar no Supabase (ver encryption.js), então precisam ser decifrados
+// em toda leitura que devolve uma linha de profiles.
+function decryptProfile(row) {
+  if (!row) return row;
+  return { ...row, tone: decrypt(row.tone), last_interaction_summary: decrypt(row.last_interaction_summary) };
+}
+
 async function getProfile(phoneNumber) {
   const { data, error } = await supabase.from('profiles').select('*').eq('phone_number', phoneNumber).maybeSingle();
   assertNoError(error, 'getProfile');
-  return data;
+  return decryptProfile(data);
 }
 
 async function createProfile(phoneNumber) {
@@ -21,7 +31,7 @@ async function createProfile(phoneNumber) {
     if (error.code === '23505') return getProfile(phoneNumber);
     assertNoError(error, 'createProfile');
   }
-  return data;
+  return decryptProfile(data);
 }
 
 async function recordConsent(phoneNumber) {
@@ -32,7 +42,7 @@ async function recordConsent(phoneNumber) {
     .select()
     .single();
   assertNoError(error, 'recordConsent');
-  return data;
+  return decryptProfile(data);
 }
 
 async function deleteProfile(phoneNumber) {
@@ -50,28 +60,28 @@ async function updateName(phoneNumber, assistantName) {
     .select()
     .single();
   assertNoError(error, 'updateName');
-  return data;
+  return decryptProfile(data);
 }
 
 async function updateTone(phoneNumber, tone) {
   const { data, error } = await supabase
     .from('profiles')
-    .update({ tone, onboarding_state: 'completo', updated_at: new Date().toISOString() })
+    .update({ tone: encrypt(tone), onboarding_state: 'completo', updated_at: new Date().toISOString() })
     .eq('phone_number', phoneNumber)
     .select()
     .single();
   assertNoError(error, 'updateTone');
-  return data;
+  return decryptProfile(data);
 }
 
 async function updatePreference(phoneNumber, { name, tone }) {
   const changes = { updated_at: new Date().toISOString() };
   if (name) changes.assistant_name = name;
-  if (tone) changes.tone = tone;
+  if (tone) changes.tone = encrypt(tone);
 
   const { data, error } = await supabase.from('profiles').update(changes).eq('phone_number', phoneNumber).select().single();
   assertNoError(error, 'updatePreference');
-  return data;
+  return decryptProfile(data);
 }
 
 async function recordInteraction(phoneNumber, { type, summary }) {
@@ -79,7 +89,7 @@ async function recordInteraction(phoneNumber, { type, summary }) {
     .from('profiles')
     .update({
       last_interaction_type: type,
-      last_interaction_summary: summary,
+      last_interaction_summary: encrypt(summary),
       last_interaction_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
@@ -87,7 +97,7 @@ async function recordInteraction(phoneNumber, { type, summary }) {
     .select()
     .single();
   assertNoError(error, 'recordInteraction');
-  return data;
+  return decryptProfile(data);
 }
 
 // RPC (sql/004_atomic_rate_limit.sql) em vez de ler-e-escrever daqui: o UPDATE
@@ -110,7 +120,7 @@ async function updatePendingAction(phoneNumber, pendingAction) {
     .select()
     .single();
   assertNoError(error, 'updatePendingAction');
-  return data;
+  return decryptProfile(data);
 }
 
 module.exports = {

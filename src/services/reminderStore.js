@@ -1,4 +1,5 @@
 const { supabase } = require('./supabaseClient');
+const { encrypt, decrypt } = require('./encryption');
 
 function assertNoError(error, action) {
   if (error) {
@@ -6,20 +7,28 @@ function assertNoError(error, action) {
   }
 }
 
+// description é texto livre (ex: "tomar remédio de pressão") — cifrado na
+// aplicação antes de chegar no Supabase (ver encryption.js), precisa ser
+// decifrado em toda leitura que devolve uma linha de reminders.
+function decryptReminder(row) {
+  if (!row) return row;
+  return { ...row, description: decrypt(row.description) };
+}
+
 async function createReminder(phoneNumber, { description, scheduledAt }) {
   const { data, error } = await supabase
     .from('reminders')
-    .insert({ phone_number: phoneNumber, description, scheduled_at: scheduledAt.toISOString() })
+    .insert({ phone_number: phoneNumber, description: encrypt(description), scheduled_at: scheduledAt.toISOString() })
     .select()
     .single();
   assertNoError(error, 'createReminder');
-  return data;
+  return decryptReminder(data);
 }
 
 async function getDueReminders(now) {
   const { data, error } = await supabase.from('reminders').select('*').eq('status', 'pendente').lte('scheduled_at', now.toISOString());
   assertNoError(error, 'getDueReminders');
-  return data || [];
+  return (data || []).map(decryptReminder);
 }
 
 // Marca como enviado só se ainda estiver pendente (UPDATE ... WHERE status =
@@ -37,7 +46,7 @@ async function claimReminder(id) {
     .select()
     .maybeSingle();
   assertNoError(error, 'claimReminder');
-  return data;
+  return decryptReminder(data);
 }
 
 // Volta o lembrete pra "pendente" depois de uma reivindicação cujo envio

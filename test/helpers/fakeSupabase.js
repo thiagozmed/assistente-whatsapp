@@ -16,4 +16,22 @@ function fakeQuery(result) {
   return builder;
 }
 
-module.exports = { fakeQuery };
+// Variante que captura o payload passado pra insert()/update(), pra testes
+// que precisam inspecionar o que de fato seria enviado ao Supabase (ex:
+// confirmar que um campo saiu cifrado antes de sair do processo).
+function fakeQueryCapture(result, onWrite) {
+  const builder = fakeQuery(result);
+  const originalInsert = builder.insert;
+  const originalUpdate = builder.update;
+  builder.insert = (payload) => {
+    onWrite(payload);
+    return originalInsert();
+  };
+  builder.update = (payload) => {
+    onWrite(payload);
+    return originalUpdate();
+  };
+  return builder;
+}
+
+module.exports = { fakeQuery, fakeQueryCapture };
