@@ -352,6 +352,29 @@ test('handleIncomingText: intent "agenda" sem data válida não cria lembrete e 
   assert.equal(createMock.mock.callCount(), 0);
 });
 
+test('handleIncomingText: pergunta de capacidade sobre lembrete devolve resposta natural em vez da frase fixa (bug real 2026-07-08)', async (t) => {
+  mockRateLimitAllowed(t);
+  t.mock.method(profileStore, 'getProfile', async () => COMPLETED_PROFILE);
+  const createMock = t.mock.method(reminderStore, 'createReminder', async () => ({}));
+
+  let call = 0;
+  t.mock.method(client.messages, 'create', async () => {
+    call += 1;
+    if (call === 1) return textResponse({ intent: 'agenda' });
+    return textResponse({
+      descricao: '',
+      quando_iso: '',
+      recorrente: false,
+      resposta_se_incompleto: 'Claro, consigo sim! Me conta o que e quando você quer que eu te lembre.',
+    });
+  });
+
+  const reply = await handleIncomingText('5511999999999', 'você consegue me lembrar de algo mais tarde?');
+  assert.equal(reply, 'Claro, consigo sim! Me conta o que e quando você quer que eu te lembre.');
+  assert.doesNotMatch(reply, /não consegui entender/i);
+  assert.equal(createMock.mock.callCount(), 0);
+});
+
 test('handleIncomingText: intent "esquecer" pede confirmação em vez de apagar na hora', async (t) => {
   mockRateLimitAllowed(t);
   t.mock.method(profileStore, 'getProfile', async () => COMPLETED_PROFILE);

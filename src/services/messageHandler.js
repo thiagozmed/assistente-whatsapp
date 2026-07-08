@@ -159,11 +159,12 @@ async function handleIncomingText(phoneNumber, text, referenceTimestamp = new Da
   }
 
   if (intent === 'agenda') {
-    const { descricao, scheduledAt } = await agenda.extractReminder(text, referenceTimestamp);
+    const { descricao, scheduledAt, respostaSeIncompleto } = await agenda.extractReminder(text, referenceTimestamp, profile);
     if (descricao && scheduledAt) {
       await reminderStore.createReminder(phoneNumber, { description: descricao, scheduledAt });
+      return agenda.buildConfirmationMessage({ descricao, scheduledAt });
     }
-    return agenda.buildConfirmationMessage({ descricao, scheduledAt });
+    return respostaSeIncompleto || agenda.buildConfirmationMessage({ descricao: null, scheduledAt: null });
   }
 
   if (intent === 'esquecer') {
